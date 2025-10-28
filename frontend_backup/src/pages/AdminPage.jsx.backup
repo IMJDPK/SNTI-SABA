@@ -1,0 +1,539 @@
+import React, { useState, useEffect } from 'react';
+
+export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState('whatsapp');
+  const [studentData, setStudentData] = useState([]);
+  const [assessmentData, setAssessmentData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState('Ready');
+  const [qrCode, setQrCode] = useState(null);
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
+  const [whatsAppStatus, setWhatsAppStatus] = useState('Disconnected');
+
+  const API_BASE = 'http://localhost:3001'; // WhatsApp backend
+  const MBTI_API_BASE = 'http://localhost:8001'; // MBTI backend
+
+  // Check WhatsApp connection status
+  useEffect(() => {
+    checkWhatsAppConnection();
+    const interval = setInterval(checkWhatsAppConnection, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const checkWhatsAppConnection = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/status`);
+      const data = await response.json();
+      setIsWhatsAppConnected(data.isConnected);
+      setWhatsAppStatus(data.isConnected ? 'Connected' : 'Disconnected');
+      if (data.qr) {
+        setQrCode(data.qr);
+      }
+    } catch (error) {
+      setIsWhatsAppConnected(false);
+      setWhatsAppStatus('Server Error');
+    }
+  };
+
+  const disconnectWhatsApp = async () => {
+    setIsLoading(true);
+    setStatus('Disconnecting WhatsApp...');
+    try {
+      const response = await fetch(`${API_BASE}/disconnect-whatsapp`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        setStatus('WhatsApp disconnected successfully');
+        setIsWhatsAppConnected(false);
+        setWhatsAppStatus('Disconnected');
+        setQrCode(null);
+      }
+    } catch (error) {
+      setStatus('Failed to disconnect WhatsApp');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkServerHealth = async () => {
+    setIsLoading(true);
+    setStatus('Checking servers...');
+    
+    try {
+      // Check MBTI backend
+      const mbtiResponse = await fetch(`${MBTI_API_BASE}/health`);
+      const mbtiData = await mbtiResponse.json();
+      
+      // Check WhatsApp backend
+      const whatsappResponse = await fetch(`${API_BASE}/status`);
+      const whatsappData = await whatsappResponse.json();
+      
+      if (mbtiData.status === 'healthy' && whatsappResponse.ok) {
+        setStatus(`All servers healthy - MBTI: ${mbtiData.message}, WhatsApp: ${whatsappData.isConnected ? 'Connected' : 'Disconnected'}`);
+      } else {
+        setStatus('Some servers unhealthy');
+      }
+    } catch (error) {
+      setStatus('Server connection failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportData = async (dataType) => {
+    setIsLoading(true);
+    setStatus(`Exporting ${dataType} data...`);
+    
+    try {
+      // This would typically call an API endpoint to export data
+      // For now, we'll simulate the export
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${dataType}_export_${timestamp}.json`;
+      
+      let exportData = [];
+      if (dataType === 'students') {
+        exportData = studentData;
+      } else if (dataType === 'assessments') {
+        exportData = assessmentData;
+      }
+      
+      // Create downloadable file
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+      setStatus(`${dataType} data exported successfully`);
+    } catch (error) {
+      setStatus(`Export failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearCache = async () => {
+    setIsLoading(true);
+    setStatus('Clearing cache...');
+    
+    try {
+      // This would call an API endpoint to clear Redis cache
+      // For now, we'll simulate it
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStatus('Cache cleared successfully');
+    } catch (error) {
+      setStatus(`Cache clear failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const generateReport = async () => {
+    setIsLoading(true);
+    setStatus('Generating system report...');
+    
+    try {
+      const report = {
+        timestamp: new Date().toISOString(),
+        totalStudents: studentData.length,
+        totalAssessments: assessmentData.length,
+        systemStatus: 'Operational',
+        features: [
+          'Psychology Chat (SABA AI)',
+          'MBTI Personality Assessment',
+          'Student Session Management',
+          'Real-time Chat Interface',
+          'Personality Type Analysis'
+        ],
+        recentActivity: [
+          'System optimized for educational psychology',
+          'MBTI assessment algorithm implemented',
+          'Chat interface enhanced for student support',
+          'Admin dashboard created for monitoring'
+        ]
+      };
+      
+      const reportStr = JSON.stringify(report, null, 2);
+      const reportBlob = new Blob([reportStr], { type: 'application/json' });
+      const url = URL.createObjectURL(reportBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `system_report_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+      setStatus('System report generated');
+    } catch (error) {
+      setStatus(`Report generation failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-bold mb-2">🔧 SABA Admin Dashboard</h1>
+                <p className="text-purple-100 text-lg">System Management & Analytics</p>
+              </div>
+              <div className="text-right">
+                <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
+                  status.includes('error') ? 'bg-red-500' : 
+                  isLoading ? 'bg-yellow-500' : 'bg-green-500'
+                }`}>
+                  <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
+                  {status}
+                </div>
+                {isLoading && (
+                  <div className="flex items-center justify-end space-x-2 mt-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span className="text-sm text-purple-200">Processing...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-200 bg-gray-50">
+            <nav className="flex space-x-1 px-6">
+              {[
+                { id: 'whatsapp', label: '📱 WhatsApp', count: null },
+                { id: 'students', label: '👥 Students', count: studentData.length },
+                { id: 'assessments', label: '🧩 Assessments', count: assessmentData.length },
+                { id: 'system', label: '⚙️ System', count: null },
+                { id: 'analytics', label: '📊 Analytics', count: null }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-4 px-6 rounded-t-xl font-medium text-sm transition-all duration-200 ${
+                    activeTab === tab.id
+                      ? 'bg-white text-blue-600 border-b-2 border-blue-500 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {tab.label}
+                    {tab.count !== null && (
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        activeTab === tab.id 
+                          ? 'bg-blue-100 text-blue-600' 
+                          : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-8">
+            {activeTab === 'whatsapp' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">WhatsApp Integration</h2>
+                <div className="flex items-center space-x-4">
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    isWhatsAppConnected 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {whatsAppStatus}
+                  </span>
+                  {isWhatsAppConnected && (
+                    <button
+                      onClick={disconnectWhatsApp}
+                      disabled={isLoading}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {!isWhatsAppConnected && qrCode && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4">📱 Scan QR Code to Connect WhatsApp</h3>
+                  <div className="flex flex-col items-center">
+                    <div 
+                      className="bg-white p-4 rounded-lg shadow-lg mb-4"
+                      dangerouslySetInnerHTML={{ __html: qrCode }}
+                    />
+                    <p className="text-blue-700 text-center max-w-md">
+                      Open WhatsApp on your phone → Settings → Linked Devices → Link a Device → 
+                      Scan the QR code above
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {isWhatsAppConnected && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-green-800 mb-4">✅ WhatsApp Connected Successfully!</h3>
+                  <p className="text-green-700 mb-4">
+                    Students can now message your connected WhatsApp number to start their MBTI assessment with SABA.
+                  </p>
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-800 mb-2">How it works:</h4>
+                    <ol className="list-decimal list-inside space-y-1 text-green-700">
+                      <li>Students send "Hi" or "Hello" to your WhatsApp</li>
+                      <li>SABA introduces herself and offers MBTI assessment</li>
+                      <li>Students reply "YES" to begin 16-question assessment</li>
+                      <li>After completion, they get personality results and can chat with SABA</li>
+                      <li>All conversations are powered by AI psychology support</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-purple-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-purple-800 mb-2">MBTI Assessment</h3>
+                  <p className="text-3xl font-bold text-purple-600">16</p>
+                  <p className="text-sm text-purple-600">Questions via WhatsApp</p>
+                </div>
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-blue-800 mb-2">AI Psychology</h3>
+                  <p className="text-3xl font-bold text-blue-600">SABA</p>
+                  <p className="text-sm text-blue-600">Powered by Gemini AI</p>
+                </div>
+                <div className="bg-orange-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-orange-800 mb-2">Student Support</h3>
+                  <p className="text-3xl font-bold text-orange-600">24/7</p>
+                  <p className="text-sm text-orange-600">Available via WhatsApp</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab === 'students' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Student Management</h2>
+                <button
+                  onClick={() => exportData('students')}
+                  disabled={isLoading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                >
+                  Export Student Data
+                </button>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-yellow-800">
+                  💡 <strong>Note:</strong> Student data is stored in Redis sessions and is temporary by design for privacy. 
+                  Real student records would typically be integrated with your institution's student information system.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-blue-800 mb-2">Active Sessions</h3>
+                  <p className="text-3xl font-bold text-blue-600">{studentData.length}</p>
+                  <p className="text-sm text-blue-600">Students currently using SABA</p>
+                </div>
+                <div className="bg-green-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-2">Total Chats</h3>
+                  <p className="text-3xl font-bold text-green-600">0</p>
+                  <p className="text-sm text-green-600">Psychology conversations</p>
+                </div>
+                <div className="bg-purple-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-purple-800 mb-2">Privacy Protected</h3>
+                  <p className="text-3xl font-bold text-purple-600">✓</p>
+                  <p className="text-sm text-purple-600">All data ephemeral</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'assessments' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">MBTI Assessment Analytics</h2>
+                <button
+                  onClick={() => exportData('assessments')}
+                  disabled={isLoading}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+                >
+                  Export Assessment Data
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {[
+                  { type: 'INTJ', count: 0, color: 'purple' },
+                  { type: 'ENFP', count: 0, color: 'blue' },
+                  { type: 'ISTJ', count: 0, color: 'green' },
+                  { type: 'ESFJ', count: 0, color: 'orange' }
+                ].map((item) => (
+                  <div key={item.type} className={`bg-${item.color}-50 p-4 rounded-lg text-center`}>
+                    <h3 className={`font-bold text-${item.color}-800`}>{item.type}</h3>
+                    <p className={`text-2xl font-bold text-${item.color}-600`}>{item.count}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="font-semibold mb-4">Assessment Features</h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li>✅ 16-question comprehensive MBTI assessment</li>
+                  <li>✅ Real-time personality type calculation</li>
+                  <li>✅ Personalized study recommendations</li>
+                  <li>✅ Academic strength analysis</li>
+                  <li>✅ Integration with psychology chat</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'system' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">System Management</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <button
+                    onClick={checkServerHealth}
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                  >
+                    🩺 Check Server Health
+                  </button>
+                  
+                  <button
+                    onClick={clearCache}
+                    disabled={isLoading}
+                    className="w-full bg-orange-600 text-white p-4 rounded-lg hover:bg-orange-700 disabled:bg-gray-400 transition-colors"
+                  >
+                    🗑️ Clear Redis Cache
+                  </button>
+                  
+                  <button
+                    onClick={generateReport}
+                    disabled={isLoading}
+                    className="w-full bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+                  >
+                    📋 Generate System Report
+                  </button>
+                </div>
+
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="font-semibold mb-4">System Information</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>WhatsApp Backend:</span>
+                      <span className="font-mono">Node.js (Port 3001)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>MBTI Backend:</span>
+                      <span className="font-mono">Flask (Port 8001)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Frontend:</span>
+                      <span className="font-mono">React + Vite</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>AI Model:</span>
+                      <span className="font-mono">Google Gemini Pro</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>WhatsApp Library:</span>
+                      <span className="font-mono">whatsapp-web.js</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Session Store:</span>
+                      <span className="font-mono">File System + Redis</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Environment:</span>
+                      <span className="font-mono">Development</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Usage Analytics</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
+                  <h3 className="font-semibold mb-4">Psychology Chat Usage</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span>Total Sessions:</span>
+                      <span className="font-bold">0</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Average Session Length:</span>
+                      <span className="font-bold">N/A</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Most Common Topics:</span>
+                      <span className="font-bold">Stress, Study</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg">
+                  <h3 className="font-semibold mb-4">Assessment Completion</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span>Completed Assessments:</span>
+                      <span className="font-bold">0</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Average Completion Time:</span>
+                      <span className="font-bold">N/A</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Completion Rate:</span>
+                      <span className="font-bold">N/A</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 bg-gray-50 p-6 rounded-lg">
+                <h3 className="font-semibold mb-4">Feature Usage</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">💬</div>
+                    <h4 className="font-semibold">Psychology Chat</h4>
+                    <p className="text-sm text-gray-600">AI-powered student support</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">🧩</div>
+                    <h4 className="font-semibold">MBTI Assessment</h4>
+                    <p className="text-sm text-gray-600">Personality type discovery</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">📚</div>
+                    <h4 className="font-semibold">Study Recommendations</h4>
+                    <p className="text-sm text-gray-600">Personalized learning tips</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

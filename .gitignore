@@ -1,0 +1,116 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.hypothesis/
+.pytest_cache/
+celerybeat-schedule
+*.pid
+*.pid.lock
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+pid.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+snapshot.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+ヘッドスナップショット。[0-9]*.[0-9]*.[0-9]*.[0-9]*.json # Japanese for "head snapshot"
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Application Specific
+# Secrets - IMPORTANT: Ensure these are not committed
+credentials.json
+token.pickle
+backend/service_account.json
+*.env
+.env.*
+!.env.example
+
+# Data and Uploads
+client_data/
+# If you want to track specific files in client_data, like templates, use !pattern
+# e.g., !client_data/template.xlsx
+# For now, ignoring the whole folder as it seems to contain generated/session data.
+
+backend/uploads/
+# If resume uploads should be backed up elsewhere and not in git
+
+# Cache files
+backend/.wwebjs_cache/
+
+# Log files (if not already covered by Python section)
+*.log
+logs/
+
+# Excel reports (if generated and shouldn't be in git)
+client_data/daily_lead_reports/
+
+# Other
+app.py.save
+system_instruction_history.json # If this is more of a log than a config
+
+# Frontend specific (if not covered by Node.js section)
+# Copied from frontend/.gitignore and potentially extended
+# dist/ # Already covered by Python section, but good to have if frontend has its own build
+# node_modules/ # Already covered by Node.js section
+node_modules
+
+# Sensitive credentials
+client_secret*.json
+credentials.json
+*.json

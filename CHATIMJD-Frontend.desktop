@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CHATIMJD Frontend
+Comment=Start the CHATIMJD Frontend Web Application
+Exec=gnome-terminal --title="CHATIMJD Frontend" -- bash -c "cd '/home/imjd/Documents/CHATIMJD 2025/SNTI SABA/frontend' && echo 'Starting CHATIMJD Frontend...' && echo 'Installing dependencies...' && npm install && echo 'Starting development server on port 5173...' && npm run dev; echo 'Frontend server stopped. Press Enter to close...'; read"
+Icon=applications-internet
+Type=Application
+Terminal=false
+Categories=Development;WebDevelopment;
+StartupNotify=true

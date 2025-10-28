@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CHATIMJD Control Panel
+Comment=Start All CHATIMJD Services at Once
+Exec=gnome-terminal --title="CHATIMJD Control Panel" -- bash -c "cd '/home/imjd/Documents/CHATIMJD 2025/SNTI SABA' && echo '🚀 CHATIMJD Control Panel' && echo '========================' && echo 'Starting all services...' && echo '' && echo '1. Starting Backend Server...' && gnome-terminal --title='Backend' -- bash -c 'cd backend && npm install && node index.js; read' && sleep 3 && echo '2. Starting Frontend Server...' && gnome-terminal --title='Frontend' -- bash -c 'cd frontend && npm install && npm run dev; read' && sleep 3 && echo '3. Starting Python Service...' && gnome-terminal --title='Python' -- bash -c 'source .venv/bin/activate && python3 mbti_app.py; read' && echo '' && echo '✅ All services started!' && echo 'Backend: http://localhost:3001' && echo 'Frontend: http://localhost:5173' && echo 'Python: Flask service running' && echo '' && echo 'Press Enter to close control panel...'; read"
+Icon=applications-system
+Type=Application
+Terminal=false
+Categories=Development;System;
+StartupNotify=true

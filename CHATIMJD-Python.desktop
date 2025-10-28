@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CHATIMJD Python Service
+Comment=Start the CHATIMJD Python MBTI Assessment Service
+Exec=gnome-terminal --title="CHATIMJD Python" -- bash -c "cd '/home/imjd/Documents/CHATIMJD 2025/SNTI SABA' && echo 'Starting CHATIMJD Python Service...' && echo 'Activating Python virtual environment...' && source .venv/bin/activate && echo 'Starting MBTI assessment service...' && python3 mbti_app.py; echo 'Python service stopped. Press Enter to close...'; read"
+Icon=applications-python
+Type=Application
+Terminal=false
+Categories=Development;Education;
+StartupNotify=true

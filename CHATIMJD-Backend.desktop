@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=CHATIMJD Backend Server
+Comment=Start the CHATIMJD Backend Service (WhatsApp + AI)
+Exec=gnome-terminal --title="CHATIMJD Backend" -- bash -c "cd '/home/imjd/Documents/CHATIMJD 2025/SNTI SABA/backend' && echo 'Starting CHATIMJD Backend Server...' && echo 'Installing dependencies...' && npm install && echo 'Starting server on port 3001...' && node index.js; echo 'Backend server stopped. Press Enter to close...'; read"
+Icon=applications-development
+Type=Application
+Terminal=false
+Categories=Development;Network;
+StartupNotify=true

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SABA MBTI Psychology Assessment</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1em;
+        }
+        
+        .chat-section, .assessment-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f7fafc;
+        }
+        
+        .section-title {
+            color: #2d3748;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4299e1;
+            padding-bottom: 5px;
+        }
+        
+        input, textarea, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #3182ce, #2c5282);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 2px solid #e2e8f0;
+            padding: 15px;
+            margin: 15px 0;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .user-message {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .ai-message {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .assessment-form {
+            display: none;
+        }
+        
+        .assessment-form.active {
+            display: block;
+        }
+        
+        .result-display {
+            background: #f0fff4;
+            border: 2px solid #48bb78;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .mbti-type {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2d3748;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #4299e1;
+            font-style: italic;
+        }
+        
+        .error {
+            background: #fed7d7;
+            border: 2px solid #fc8181;
+            color: #c53030;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #c6f6d5;
+            border: 2px solid #68d391;
+            color: #22543d;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 SABA</h1>
+            <p>MBTI Psychology Assessment Platform</p>
+            <p><em>Your AI Psychologist for Student Support</em></p>
+        </div>
+
+        <!-- Psychology Chat Section -->
+        <div class="chat-section">
+            <h2 class="section-title">💬 Psychology Conversation</h2>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai-message">
+                    <strong>SABA:</strong> Hello! I'm SABA, your AI psychologist. I'm here to help you with any concerns about your studies, stress, or personal development. How can I support you today?
+                </div>
+            </div>
+            <input type="text" id="studentId" placeholder="Enter your student ID (e.g., student123)" value="student123">
+            <textarea id="messageInput" placeholder="Type your message here..." rows="3"></textarea>
+            <button onclick="sendMessage()">Send Message</button>
+            <button onclick="resetChat()">Reset Conversation</button>
+        </div>
+
+        <!-- MBTI Assessment Section -->
+        <div class="assessment-section">
+            <h2 class="section-title">📝 MBTI Personality Assessment</h2>
+            
+            <!-- Student Information Form -->
+            <div id="studentForm">
+                <input type="text" id="studentName" placeholder="Your full name">
+                <input type="email" id="studentEmail" placeholder="Your email address">
+                <input type="text" id="assessmentStudentId" placeholder="Student ID" value="student123">
+                <button onclick="startAssessment()">Start MBTI Assessment</button>
+            </div>
+
+            <!-- Assessment Questions (Hidden initially) -->
+            <div id="assessmentForm" class="assessment-form">
+                <p>Answer each question by selecting the option that best describes you:</p>
+                <div id="questionsContainer"></div>
+                <button onclick="submitAssessment()">Submit Assessment</button>
+            </div>
+
+            <!-- Results Display -->
+            <div id="resultsDisplay"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001';
+        let assessmentResponses = [];
+
+        // Sample MBTI questions
+        const mbtiQuestions = [
+            { text: "At parties, do you:", optionA: "Interact with many people", optionB: "Interact with a few people" },
+            { text: "Are you more:", optionA: "Realistic than speculative", optionB: "Speculative than realistic" },
+            { text: "Is it worse to:", optionA: "Have your head in the clouds", optionB: "Be in a rut" },
+            { text: "Are you more impressed by:", optionA: "Principles", optionB: "Emotions" },
+            { text: "Are you more drawn toward:", optionA: "Convincing", optionB: "Touching" },
+            { text: "Do you prefer to work:", optionA: "To deadlines", optionB: "Just whenever" },
+            { text: "Do you tend to choose:", optionA: "Rather carefully", optionB: "Somewhat impulsively" },
+            { text: "At parties, do you:", optionA: "Stay late, with increasing energy", optionB: "Leave early with decreased energy" },
+            { text: "Are you more attracted to:", optionA: "Sensible people", optionB: "Imaginative people" },
+            { text: "Are you more interested in:", optionA: "What is actual", optionB: "What is possible" },
+            { text: "In judging others, are you more swayed by:", optionA: "Laws than circumstances", optionB: "Circumstances than laws" },
+            { text: "In approaching others, your inclination is to be somewhat:", optionA: "Objective", optionB: "Personal" },
+            { text: "Are you more:", optionA: "Punctual", optionB: "Leisurely" },
+            { text: "Does it bother you more having things:", optionA: "Incomplete", optionB: "Completed" },
+            { text: "In your social groups, do you:", optionA: "Keep abreast of others' happenings", optionB: "Get behind on the news" },
+            { text: "In doing ordinary things, are you more likely to:", optionA: "Do it the usual way", optionB: "Do it your own way" }
+        ];
+
+        async function sendMessage() {
+            const studentId = document.getElementById('studentId').value;
+            const message = document.getElementById('messageInput').value;
+            
+            if (!message.trim()) return;
+
+            // Add user message to chat
+            addMessageToChat('user', message);
+            document.getElementById('messageInput').value = '';
+
+            try {
+                const response = await fetch(`${API_BASE}/psychology/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, student_id: studentId })
+                });
+
+                const data = await response.json();
+                if (data.reply) {
+                    addMessageToChat('ai', data.reply);
+                } else {
+                    addMessageToChat('ai', 'Sorry, I encountered an error. Please try again.');
+                }
+            } catch (error) {
+                addMessageToChat('ai', 'Connection error. Please check if the server is running.');
+            }
+        }
+
+        function addMessageToChat(type, message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type === 'user' ? 'user-message' : 'ai-message'}`;
+            messageDiv.innerHTML = `<strong>${type === 'user' ? 'You' : 'SABA'}:</strong> ${message}`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function resetChat() {
+            const studentId = document.getElementById('studentId').value;
+            
+            try {
+                await fetch(`${API_BASE}/psychology/reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_id: studentId })
+                });
+                
+                document.getElementById('chatMessages').innerHTML = `
+                    <div class="message ai-message">
+                        <strong>SABA:</strong> Hello! I'm SABA, your AI psychologist. I'm here to help you with any concerns about your studies, stress, or personal development. How can I support you today?
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Reset error:', error);
+            }
+        }
+
+        async function startAssessment() {
+            const name = document.getElementById('studentName').value;
+            const email = document.getElementById('studentEmail').value;
+            const studentId = document.getElementById('assessmentStudentId').value;
+
+            if (!name || !email) {
+                alert('Please fill in your name and email address.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/assessment/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        student_name: name, 
+                        student_email: email, 
+                        student_id: studentId 
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    showAssessmentQuestions();
+                } else {
+                    alert('Failed to start assessment: ' + data.error);
+                }
+            } catch (error) {
+                alert('Connection error. Please check if the server is running.');
+            }
+        }
+
+        function showAssessmentQuestions() {
+            document.getElementById('studentForm').style.display = 'none';
+            document.getElementById('assessmentForm').style.display = 'block';
+            
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            
+            mbtiQuestions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.style.margin = '20px 0';
+                questionDiv.style.padding = '15px';
+                questionDiv.style.border = '1px solid #e2e8f0';
+                questionDiv.style.borderRadius = '8px';
+                
+                questionDiv.innerHTML = `
+                    <h4>Question ${index + 1}: ${question.text}</h4>
+                    <label style="display: block; margin: 10px 0;">
+                        <input type="radio" name="q${index}" value="A" style="width: auto; margin-right: 10px;">
+                        A) ${question.optionA}
+                    </label>
+                    <label style="display: block; margin: 10px 0;">
+                        <input type="radio" name="q${index}" value="B" style="width: auto; margin-right: 10px;">
+                        B) ${question.optionB}
+                    </label>
+                `;
+                
+                container.appendChild(questionDiv);
+            });
+        }
+
+        async function submitAssessment() {
+            assessmentResponses = [];
+            
+            // Collect responses
+            for (let i = 0; i < mbtiQuestions.length; i++) {
+                const selected = document.querySelector(`input[name="q${i}"]:checked`);
+                if (!selected) {
+                    alert(`Please answer question ${i + 1}`);
+                    return;
+                }
+                assessmentResponses.push(selected.value);
+            }
+
+            const studentId = document.getElementById('assessmentStudentId').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/assessment/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        student_id: studentId, 
+                        responses: assessmentResponses 
+                    })
+                });
+
+                const data = await response.json();
+                if (data.mbti_type) {
+                    showResults(data);
+                } else {
+                    alert('Assessment submission failed: ' + data.error);
+                }
+            } catch (error) {
+                alert('Connection error. Please check if the server is running.');
+            }
+        }
+
+        function showResults(data) {
+            document.getElementById('assessmentForm').style.display = 'none';
+            
+            const resultsDiv = document.getElementById('resultsDisplay');
+            const typeInfo = data.type_info || {};
+            
+            resultsDiv.innerHTML = `
+                <div class="result-display">
+                    <div class="mbti-type">${data.mbti_type}</div>
+                    <h3>${typeInfo.name || 'Personality Type'}</h3>
+                    <p><strong>Description:</strong> ${typeInfo.description || 'No description available'}</p>
+                    
+                    ${typeInfo.strengths && typeInfo.strengths.length > 0 ? `
+                        <h4>Strengths:</h4>
+                        <ul>${typeInfo.strengths.map(s => `<li>${s}</li>`).join('')}</ul>
+                    ` : ''}
+                    
+                    ${typeInfo.challenges && typeInfo.challenges.length > 0 ? `
+                        <h4>Development Areas:</h4>
+                        <ul>${typeInfo.challenges.map(c => `<li>${c}</li>`).join('')}</ul>
+                    ` : ''}
+                    
+                    ${typeInfo.career_suggestions && typeInfo.career_suggestions.length > 0 ? `
+                        <h4>Career Suggestions:</h4>
+                        <ul>${typeInfo.career_suggestions.map(c => `<li>${c}</li>`).join('')}</ul>
+                    ` : ''}
+                    
+                    <p><strong>Assessment ID:</strong> ${data.assessment_id}</p>
+                    <button onclick="restartAssessment()">Take Another Assessment</button>
+                </div>
+            `;
+        }
+
+        function restartAssessment() {
+            document.getElementById('studentForm').style.display = 'block';
+            document.getElementById('assessmentForm').style.display = 'none';
+            document.getElementById('resultsDisplay').innerHTML = '';
+            assessmentResponses = [];
+        }
+
+        // Allow Enter key to send messages
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
