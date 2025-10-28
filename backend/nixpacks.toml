@@ -1,0 +1,18 @@
+# Force Railway to use Node builder for the backend service
+# Docs: https://nixpacks.com/docs/providers/node
+
+# Use Node 18 LTS
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+# Install dependencies
+[phases.install]
+cmds = ["npm install --production"]
+
+# No build step for plain Node API
+[phases.build]
+cmds = []
+
+# Start the server
+[start]
+cmd = "node index.js"
