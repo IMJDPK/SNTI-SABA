@@ -1817,7 +1817,7 @@ def find_client_by_contact(phone: str = None, email: str = None, client_id: str 
         
         # If still no match, check if conversation file exists in filesystem
         # Extract normalized client ID for filesystem search
-        normalized_client_id = client_id.replace("@c.us", "_c.us").replace("@s.whatsapp.net", "_s.whatsapp.net")
+        normalized_client_id = client_id.replace("@", "_")
         
         if os.path.exists(CLIENT_DATA_FOLDER):
             for filename in os.listdir(CLIENT_DATA_FOLDER):

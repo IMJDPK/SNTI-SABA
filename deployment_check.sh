@@ -23,7 +23,7 @@ redis-cli ping 2>/dev/null || echo "❌ Redis not running"
 # Check Backend dependencies
 echo ""
 echo "✓ Backend Dependencies:"
-cd backend && npm list --depth=0 2>/dev/null | grep -E "express|socket.io|whatsapp-web" || echo "❌ Backend dependencies missing"
+cd backend && npm list --depth=0 2>/dev/null | grep -E "express|socket.io|generative-ai" || echo "❌ Backend dependencies missing"
 cd ..
 
 # Check Frontend dependencies

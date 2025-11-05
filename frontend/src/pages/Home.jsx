@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import GeminiLogo from '../assets/gemini-logo.png';
+import IMJDLogo from '../assets/imjd-logo.png';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -24,12 +26,12 @@ export default function Home() {
               
               {/* Subheading */}
               <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
-                Your AI Psychology Assistant for <span className="text-gray-900 font-semibold">transformative learning</span>
+                Your Personality Type Identification (Powered By Gemini AI x SNTI) for <span className="text-gray-900 font-semibold">transformative learning</span>
               </p>
               
               {/* Description */}
               <p className="text-lg text-gray-500 mb-10 max-w-2xl mx-auto">
-                Revolutionary MBTI assessments, personalized study strategies, 24/7 AI support, and WhatsApp integration for students.
+                Revolutionary SNTI assessments, personalized study strategies, and 24/7 AI support for students.
               </p>
               
               {/* CTA Buttons */}
@@ -77,24 +79,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* WhatsApp Integration Feature */}
-              <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-center gap-3">
-                  <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.515"/>
-                  </svg>
-                  <span className="text-green-800 font-medium">NEW: WhatsApp Integration Available!</span>
-                  <button
-                    onClick={() => navigate('/whatsapp')}
-                    className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
-                  >
-                    Connect Now
-                  </button>
-                </div>
-                <p className="text-center text-green-700 text-sm mt-2">
-                  Connect your WhatsApp to automatically handle MBTI assessments and provide 24/7 AI psychology support
-                </p>
-              </div>
+
             </div>
           </div>
         </div>
@@ -120,7 +105,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">MBTI Assessment</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">SNTI Assessment</h3>
               <p className="text-gray-600">
                 Discover your personality type through our comprehensive 16-question assessment based on proven psychological methods.
               </p>
@@ -133,7 +118,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">AI Psychology Chat</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Personality Type Identification (Powered By Gemini AI x SNTI)</h3>
               <p className="text-gray-600">
                 Chat with SABA, your AI psychologist, for personalized guidance and support available 24/7.
               </p>
@@ -143,12 +128,12 @@ export default function Home() {
             <div className="bg-white p-8 rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-200">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-6">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">WhatsApp Integration</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Comprehensive Results</h3>
               <p className="text-gray-600">
-                Take assessments and chat directly through WhatsApp for ultimate convenience and accessibility.
+                Get detailed personality type analysis with strengths, growth areas, and personalized insights for your development.
               </p>
             </div>
 
@@ -210,7 +195,7 @@ export default function Home() {
             <div className="p-8">
               <div className="text-4xl font-bold text-blue-600 mb-2">16</div>
               <div className="text-lg font-semibold text-gray-900 mb-2">Personality Types</div>
-              <div className="text-gray-600">Comprehensive MBTI assessment covering all personality dimensions</div>
+              <div className="text-gray-600">Comprehensive SNTI assessment covering all personality dimensions</div>
             </div>
             <div className="p-8">
               <div className="text-4xl font-bold text-green-600 mb-2">24/7</div>
@@ -221,6 +206,28 @@ export default function Home() {
               <div className="text-4xl font-bold text-purple-600 mb-2">∞</div>
               <div className="text-lg font-semibold text-gray-900 mb-2">Personalized Tips</div>
               <div className="text-gray-600">Unlimited study strategies based on your personality</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Powered by Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h3 className="text-lg font-medium text-gray-600 mb-8">Powered by Advanced AI Technology</h3>
+            <div className="flex justify-center items-center">
+              <div className="flex items-center space-x-4 bg-white px-8 py-6 rounded-lg shadow-sm border border-gray-200">
+                <img 
+                  src={GeminiLogo} 
+                  alt="Google Gemini" 
+                  className="h-12 w-auto"
+                />
+                <div className="text-left">
+                  <div className="text-lg font-semibold text-gray-900">Google Gemini</div>
+                  <div className="text-sm text-gray-600">Advanced AI for personalized insights</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -260,14 +267,26 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold">S</span>
-                </div>
                 <span className="text-xl font-bold text-gray-900">SABA</span>
               </div>
-              <p className="text-gray-600 mb-6 max-w-md">
+              <p className="text-gray-600 mb-4 max-w-md">
                 Empowering students through personality-based learning and AI-powered psychological support.
               </p>
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-sm text-gray-500">Developed by:</span>
+                <a 
+                  href="https://imjd.asia" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center hover:opacity-80 transition-opacity duration-200"
+                >
+                  <img 
+                    src={IMJDLogo} 
+                    alt="IMJD - Your Digital Media Partner" 
+                    className="h-8 w-auto"
+                  />
+                </a>
+              </div>
               <div className="flex space-x-4">
                 <a href="#" className="text-gray-400 hover:text-blue-600 transition-colors duration-200">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -285,9 +304,9 @@ export default function Home() {
             <div>
               <h4 className="text-lg font-semibold text-gray-900 mb-4">Features</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">MBTI Assessment</a></li>
-                <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">AI Psychology Chat</a></li>
-                <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">WhatsApp Integration</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">SNTI Assessment</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">Personality Type Identification (Powered By Gemini AI x SNTI)</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">Privacy Policy</a></li>
                 <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors duration-200">Study Recommendations</a></li>
               </ul>
             </div>

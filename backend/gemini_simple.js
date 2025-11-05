@@ -26,13 +26,28 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 /**
  * Main SNTI TEST conversation handler with session management
  * @param {string} userMessage - The user's current message
- * @param {string} ipAddress - User's IP address for session tracking
+ * @param {string} sessionIdentifier - Unique identifier for the session (email-phone or IP)
+ * @param {Object} userInfo - User registration data (name, phone, email, rollNumber, institution)
  * @returns {Promise<Object>} - Response with text and session info
  */
-export async function handleSNTITestConversation(userMessage, ipAddress) {
+export async function handleSNTITestConversation(userMessage, sessionIdentifier, userInfo = null) {
     try {
-        // Get or create session for this IP
-        const session = getOrCreateSession(ipAddress);
+        // Get or create session (using sessionIdentifier instead of ipAddress)
+        let session = getOrCreateSession(sessionIdentifier);
+        
+        // Store user info if provided (from registration modal)
+        if (userInfo && !session.userInfo) {
+            session.userInfo = userInfo;
+            session.name = userInfo.name;
+            // Generate session ID with phone last 4 digits for easy identification
+            const timestamp = Date.now().toString().slice(-6);
+            const phoneDigits = userInfo.phone.slice(-4);
+            session.id = `SNTI-${timestamp}-${phoneDigits}`;
+            // Skip name request state, go directly to assessment start
+            session.state = 'ASSESSMENT_START';
+            
+            console.log(`👤 User registered: ${userInfo.name} (${userInfo.email}), Session: ${session.id}`);
+        }
         
         // Add user message to conversation history
         session.conversationHistory.push({
@@ -43,8 +58,27 @@ export async function handleSNTITestConversation(userMessage, ipAddress) {
         
         let response = '';
         
+        // STATE: ASSESSMENT_START - User registered via modal, welcome them directly
+        if (session.state === 'ASSESSMENT_START') {
+            session.state = 'TEST_INTRO';
+            updateSession(sessionIdentifier, session);
+            
+            const institutionText = session.userInfo.institution ? ` from ${session.userInfo.institution}` : '';
+            response = `Hello ${session.name}!${institutionText} 👋 It's wonderful to meet you!\n\n` +
+                      `Your unique session ID is: **${session.id}**\n` +
+                      `(Please save this ID - you can use it to continue our conversation anytime!)\n\n` +
+                      `I'm here to guide you through the **SNTI TEST BY SULNAQ x IMJD** - a comprehensive personality assessment based on the Myers-Briggs Type Indicator (MBTI).\n\n` +
+                      `This test will help you:\n` +
+                      `✨ Discover your unique personality type\n` +
+                      `💡 Understand your strengths and areas for growth\n` +
+                      `🎯 Get personalized career guidance\n` +
+                      `❤️ Learn about your relationship patterns\n\n` +
+                      `The test consists of 20 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
+                      `Ready to begin, ${session.name}? Reply with "START" to begin your journey! 🚀`;
+        }
+        
         // STATE: NAME_REQUEST - Ask for name and generate ID
-        if (session.state === 'NAME_REQUEST' && !session.name) {
+        else if (session.state === 'NAME_REQUEST' && !session.name) {
             // Check if user provided their name
             const nameMatch = userMessage.match(/(?:my name is|i am|i'm|call me)\s+([a-zA-Z]+)/i);
             const isNameLike = /^[a-zA-Z]{2,20}$/.test(userMessage.trim());
@@ -52,7 +86,7 @@ export async function handleSNTITestConversation(userMessage, ipAddress) {
             if (nameMatch && nameMatch[1]) {
                 session.name = nameMatch[1];
                 session.state = 'TEST_INTRO';
-                updateSession(ipAddress, session);
+                updateSession(sessionIdentifier, session);
                 
                 response = `Hello ${session.name}! 👋 It's wonderful to meet you!\n\n` +
                           `Your unique session ID is: **${session.id}**\n` +
@@ -68,7 +102,7 @@ export async function handleSNTITestConversation(userMessage, ipAddress) {
             } else if (isNameLike) {
                 session.name = userMessage.trim();
                 session.state = 'TEST_INTRO';
-                updateSession(ipAddress, session);
+                updateSession(sessionIdentifier, session);
                 
                 response = `Hello ${session.name}! 👋 It's wonderful to meet you!\n\n` +
                           `Your unique session ID is: **${session.id}**\n` +
@@ -93,7 +127,7 @@ export async function handleSNTITestConversation(userMessage, ipAddress) {
             if (userMessage.toLowerCase().includes('start') || userMessage.toLowerCase().includes('yes') || userMessage.toLowerCase().includes('ready')) {
                 session.state = 'TEST_IN_PROGRESS';
                 session.currentQuestion = 0;
-                updateSession(ipAddress, session);
+                updateSession(sessionIdentifier, session);
                 
                 const question = SNTI_QUESTIONS[0];
                 response = `Excellent, ${session.name}! Let's begin! 🎯\n\n` +
@@ -117,15 +151,15 @@ export async function handleSNTITestConversation(userMessage, ipAddress) {
                 // Save the answer
                 session.answers.push(answer);
                 session.currentQuestion++;
-                updateSession(ipAddress, session);
+                updateSession(sessionIdentifier, session);
                 
                 // Check if test is complete
                 if (session.currentQuestion >= SNTI_QUESTIONS.length) {
-                    // Calculate MBTI type
+                    // Calculate SNTI type
                     const mbtiType = calculateMBTIType(session.answers);
                     session.mbtiType = mbtiType;
                     session.state = 'TEST_COMPLETE';
-                    updateSession(ipAddress, session);
+                    updateSession(sessionIdentifier, session);
                     
                     // Save session to file system
                     await saveSession(session);
@@ -211,7 +245,7 @@ Respond to their message with empathy and personalized guidance:`;
             text: response,
             timestamp: new Date()
         });
-        updateSession(ipAddress, session);
+        updateSession(sessionIdentifier, session);
         
         return {
             response,

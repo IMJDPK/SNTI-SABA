@@ -1,13 +1,11 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import { Client } from 'whatsapp-web.js';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { promises as fs } from 'fs';
-import QRCode from 'qrcode';
 import { getEmpatheticResponse, TOPIC_TREES, MBTI_TEMPLATES } from './ai_handler.js';
 import { generateConversationalResponse, handleSNTITestConversation } from './gemini_simple.js';
 import { getAllSessions } from './session_manager.js';
@@ -18,12 +16,6 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-
-// Add QR code state
-let qrCode = null;
-
-// Add connection status
-let isClientReady = false;
 
 // Middleware
 const allowedOrigins = [
@@ -58,7 +50,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// MBTI Questions Database
+// SNTI Questions Database
 const mbtiQuestions = {
     1: {
         text: "When you're at a gathering, do you:",
@@ -158,7 +150,7 @@ const mbtiQuestions = {
     }
 };
 
-// MBTI Type Descriptions
+// SNTI Type Descriptions
 const mbtiTypes = {
     'ISTJ': {
         name: 'The Inspector',
@@ -258,54 +250,29 @@ const mbtiTypes = {
     }
 };
 
-// Add QR endpoint
-app.get('/qr', (req, res) => {
-    if (qrCode) {
-        res.json({ qr: qrCode });
-    } else {
-        res.status(404).json({ message: 'QR Code not available yet' });
-    }
-});
 
-// Add status endpoint
-app.get('/status', (req, res) => {
-    res.json({ 
-        isConnected: isClientReady,
-        qr: qrCode,
-        message: isClientReady ? 'WhatsApp connected' : 'WhatsApp not connected'
-    });
-});
-
-// Add disconnect endpoint
-app.post('/disconnect-whatsapp', (req, res) => {
-    try {
-        if (client) {
-            client.destroy();
-            isClientReady = false;
-            qrCode = null;
-            res.json({ message: 'WhatsApp disconnected successfully' });
-        } else {
-            res.json({ message: 'WhatsApp was not connected' });
-        }
-    } catch (error) {
-        res.status(500).json({ message: 'Error disconnecting WhatsApp' });
-    }
-});
 
 // Add SNTI TEST psychology chat endpoint with session management
 app.post('/api/psychology-chat', async (req, res) => {
     try {
-        const { message, conversationHistory = [] } = req.body;
+        const { message, conversationHistory = [], userInfo } = req.body;
         
         if (!message || !message.trim()) {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        // Get user's IP address for session tracking
-        const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+        // Create unique session identifier
+        // If userInfo is provided, use email+phone as unique identifier
+        // Otherwise, fall back to IP address
+        let sessionIdentifier;
+        if (userInfo && userInfo.email && userInfo.phone) {
+            sessionIdentifier = `${userInfo.email}-${userInfo.phone}`;
+        } else {
+            sessionIdentifier = req.ip || req.connection.remoteAddress || 'unknown';
+        }
 
-        // Use the SNTI TEST conversation handler
-        const result = await handleSNTITestConversation(message, ipAddress);
+        // Use the SNTI TEST conversation handler with user info
+        const result = await handleSNTITestConversation(message, sessionIdentifier, userInfo);
         
         res.json({ 
             response: result.response,
@@ -347,6 +314,353 @@ app.get('/api/sessions', async (req, res) => {
     }
 });
 
+// Submit payment details endpoint
+app.post('/api/submit-payment', async (req, res) => {
+    try {
+        const { name, email, mobile, transactionId, serviceType, personalityType, testResults } = req.body;
+        
+        // Validate required fields
+        if (!name || !email || !mobile || !transactionId || !serviceType || !personalityType) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'All fields are required' 
+            });
+        }
+
+        // Validate mobile number format (Pakistani format)
+        const mobileRegex = /^03\d{9}$/;
+        if (!mobileRegex.test(mobile.replace(/[-\s]/g, ''))) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid mobile number format. Use format: 03XXXXXXXXX' 
+            });
+        }
+
+        // Create payment record
+        const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        
+        const paymentRecord = {
+            id: paymentId,
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+            mobile: mobile.replace(/[-\s]/g, ''), // Remove spaces and dashes
+            transactionId: transactionId.trim(),
+            serviceType, // 'report' or 'ai-session'
+            personalityType,
+            testResults: testResults || {},
+            amount: 50,
+            currency: 'PKR',
+            status: 'PENDING',
+            submittedAt: new Date().toISOString(),
+            verifiedAt: null,
+            verifiedBy: null,
+            ipAddress: req.ip || req.connection.remoteAddress || 'unknown'
+        };
+
+        // Store in database (using JSON file)
+        const paymentsFile = path.join(__dirname, 'data', 'payments.json');
+        
+        let payments = [];
+        try {
+            const data = await fs.readFile(paymentsFile, 'utf8');
+            payments = JSON.parse(data);
+        } catch (err) {
+            // File doesn't exist yet, will be created
+            console.log('Creating new payments.json file');
+        }
+        
+        // Check for duplicate transaction ID
+        const existingPayment = payments.find(p => p.transactionId === transactionId);
+        if (existingPayment) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'This transaction ID has already been submitted' 
+            });
+        }
+        
+        payments.push(paymentRecord);
+        await fs.writeFile(paymentsFile, JSON.stringify(payments, null, 2));
+
+        console.log(`Payment submitted: ${paymentId} - ${name} - ${serviceType}`);
+
+        // TODO: Send confirmation email to user
+        // TODO: Send notification to admin
+
+        res.json({
+            success: true,
+            message: 'Payment details submitted successfully',
+            paymentId,
+            estimatedVerificationTime: '24 hours'
+        });
+
+    } catch (error) {
+        console.error('Payment submission error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to submit payment details',
+            message: error.message 
+        });
+    }
+});
+
+// Admin login endpoint
+app.post('/api/admin/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Hardcoded admin credentials (secure in production with env variables)
+        const ADMIN_EMAIL = 'khanjawadkhalid@gmail.com';
+        const ADMIN_PASSWORD = 'LukeSkywalker';
+        
+        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+            // Generate simple token (use JWT in production)
+            const token = `admin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            res.json({ 
+                success: true, 
+                token,
+                admin: { email: ADMIN_EMAIL }
+            });
+            
+            console.log(`Admin login successful: ${email}`);
+        } else {
+            res.status(401).json({ 
+                success: false, 
+                error: 'Invalid email or password' 
+            });
+        }
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Login failed',
+            message: error.message 
+        });
+    }
+});
+
+// Get all payments (admin endpoint)
+app.get('/api/admin/payments', async (req, res) => {
+    try {
+        const { status } = req.query; // PENDING, VERIFIED, REJECTED, ALL
+        
+        const paymentsFile = path.join(__dirname, 'data', 'payments.json');
+        
+        let payments = [];
+        try {
+            const data = await fs.readFile(paymentsFile, 'utf8');
+            payments = JSON.parse(data);
+        } catch (err) {
+            return res.json({ payments: [] });
+        }
+
+        // Filter by status
+        if (status && status !== 'ALL') {
+            payments = payments.filter(p => p.status === status);
+        }
+
+        // Sort by submission date (newest first)
+        payments.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+
+        res.json({ 
+            payments,
+            total: payments.length 
+        });
+    } catch (error) {
+        console.error('Failed to fetch payments:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch payments',
+            message: error.message 
+        });
+    }
+});
+
+// Get all user sessions (admin endpoint)
+app.get('/api/admin/sessions', async (req, res) => {
+    try {
+        const { scope = 'ALL', payment = 'ALL', personality = 'ALL' } = req.query;
+
+        // 1) In-memory sessions
+        const liveSessions = getAllSessions();
+
+        // 2) Persisted sessions from filesystem
+        const sessionsDir = path.join(__dirname, 'data', 'sessions');
+        let fileSessions = [];
+        try {
+            const files = await fs.readdir(sessionsDir);
+            const jsonFiles = files.filter(f => f.endsWith('.json'));
+            const reads = await Promise.allSettled(
+                jsonFiles.map(f => fs.readFile(path.join(sessionsDir, f), 'utf8'))
+            );
+            fileSessions = reads
+                .filter(r => r.status === 'fulfilled')
+                .map(r => {
+                    try { return JSON.parse(r.value); } catch { return null; }
+                })
+                .filter(Boolean);
+        } catch (err) {
+            // No persisted sessions yet - that's fine
+            fileSessions = [];
+        }
+
+        // 3) Merge by session id (prefer in-memory for freshest data)
+        const sessionMap = new Map();
+        fileSessions.forEach(s => { if (s && s.id) sessionMap.set(s.id, s); });
+        liveSessions.forEach(s => { if (s && s.id) sessionMap.set(s.id, s); });
+        let sessions = Array.from(sessionMap.values());
+
+        // 4) Attach payment status by matching email+phone
+        const paymentsFile = path.join(__dirname, 'data', 'payments.json');
+        let payments = [];
+        try {
+            const pData = await fs.readFile(paymentsFile, 'utf8');
+            payments = JSON.parse(pData);
+        } catch {}
+
+        const findPaymentStatus = (email, phone) => {
+            if (!email && !phone) return 'NONE';
+            const userPays = payments.filter(p => (
+                (email && p.email && p.email.toLowerCase() === email.toLowerCase()) ||
+                (phone && p.mobile && p.mobile === phone)
+            ));
+            if (userPays.some(p => p.status === 'VERIFIED')) return 'VERIFIED';
+            if (userPays.some(p => p.status === 'PENDING')) return 'PENDING';
+            if (userPays.some(p => p.status === 'REJECTED')) return 'REJECTED';
+            return 'NONE';
+        };
+
+        // 5) Normalize and enrich
+        sessions = sessions.map(s => {
+            const ui = s.userInfo || {};
+            const paymentStatus = findPaymentStatus(ui.email, ui.phone);
+            const progress = s.state === 'TEST_IN_PROGRESS' && Array.isArray(s.answers)
+                ? `${Math.min(s.answers.length, 20)}/20`
+                : (s.state === 'TEST_COMPLETE' ? '20/20' : null);
+            return {
+                id: s.id,
+                identifier: s.identifier || s.ipAddress,
+                name: s.name || ui.name || null,
+                email: ui.email || null,
+                phone: ui.phone || null,
+                rollNumber: ui.rollNumber || null,
+                institution: ui.institution || null,
+                state: s.state,
+                mbtiType: s.mbtiType || null,
+                createdAt: s.createdAt,
+                updatedAt: s.updatedAt || s.createdAt,
+                paymentStatus,
+                progress
+            };
+        });
+
+        // 6) Scope filtering
+        if (scope === 'ACTIVE') sessions = sessions.filter(s => s.state !== 'TEST_COMPLETE');
+        if (scope === 'COMPLETED') sessions = sessions.filter(s => s.state === 'TEST_COMPLETE');
+
+        // 7) Payment filter
+        if (payment !== 'ALL') sessions = sessions.filter(s => s.paymentStatus === payment);
+
+        // 8) Personality type filter (16 MBTI types)
+        if (personality !== 'ALL') sessions = sessions.filter(s => s.mbtiType === personality);
+
+        // 9) Sort by updatedAt/createdAt desc
+        sessions.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+
+        res.json({
+            sessions,
+            total: sessions.length
+        });
+    } catch (error) {
+        console.error('Failed to fetch sessions:', error);
+        res.status(500).json({
+            error: 'Failed to fetch sessions',
+            message: error.message
+        });
+    }
+});
+
+// Verify or reject payment (admin endpoint)
+app.post('/api/admin/verify-payment', async (req, res) => {
+    try {
+        const { paymentId, action, rejectionReason } = req.body;
+        
+        if (!paymentId || !action) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Payment ID and action are required' 
+            });
+        }
+
+        if (action !== 'APPROVE' && action !== 'REJECT') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid action. Use APPROVE or REJECT' 
+            });
+        }
+
+        const paymentsFile = path.join(__dirname, 'data', 'payments.json');
+        
+        let payments = [];
+        try {
+            const data = await fs.readFile(paymentsFile, 'utf8');
+            payments = JSON.parse(data);
+        } catch (err) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'No payments found' 
+            });
+        }
+        
+        const paymentIndex = payments.findIndex(p => p.id === paymentId);
+        if (paymentIndex === -1) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Payment not found' 
+            });
+        }
+
+        const payment = payments[paymentIndex];
+
+        if (action === 'APPROVE') {
+            payment.status = 'VERIFIED';
+            payment.verifiedAt = new Date().toISOString();
+            payment.verifiedBy = 'khanjawadkhalid@gmail.com';
+
+            console.log(`✅ Payment APPROVED: ${paymentId} - ${payment.name} - ${payment.serviceType}`);
+            
+            // TODO: Send confirmation email to user
+            // TODO: If AI session, enable AI chat access
+            
+        } else if (action === 'REJECT') {
+            payment.status = 'REJECTED';
+            payment.rejectionReason = rejectionReason || 'No reason provided';
+            payment.rejectedAt = new Date().toISOString();
+            payment.rejectedBy = 'khanjawadkhalid@gmail.com';
+
+            console.log(`❌ Payment REJECTED: ${paymentId} - ${payment.name} - Reason: ${payment.rejectionReason}`);
+            
+            // TODO: Send rejection email to user
+        }
+
+        payments[paymentIndex] = payment;
+        await fs.writeFile(paymentsFile, JSON.stringify(payments, null, 2));
+
+        res.json({ 
+            success: true, 
+            payment,
+            message: `Payment ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`
+        });
+
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to verify payment',
+            message: error.message 
+        });
+    }
+});
+
 // Socket.IO setup
 const io = new Server(server, {
     cors: {
@@ -355,222 +669,16 @@ const io = new Server(server, {
     }
 });
 
-// WhatsApp client setup
-const client = new Client({
-    puppeteer: {
-        args: ["--no-sandbox"]
-    }
-});
-
-// Event handlers
-client.on("qr", async (qr) => {
-    console.log("QR Code received");
-    try {
-        // Convert QR code string to base64 image
-        const qrImageBase64 = await QRCode.toDataURL(qr);
-        // Remove the data:image/png;base64, prefix to get just the base64 string
-        const base64String = qrImageBase64.replace(/^data:image\/png;base64,/, '');
-        
-        qrCode = base64String;
-        isClientReady = false;
-        io.emit("qr", base64String);
-        console.log("QR Code converted and sent to clients");
-    } catch (error) {
-        console.error("Error generating QR code image:", error);
-    }
-});
-
-client.on("ready", () => {
-    console.log("WhatsApp client is ready");
-    qrCode = null;
-    isClientReady = true;
-    io.emit("ready");
-});
-
-client.on("message", async (message) => {
-    console.log("Message received:", message.body);
-    io.emit("message", message);
-    
-    try {
-        // Format the phone number for user_id
-        const phone = message.from.replace("@s.whatsapp.net", "");
-        
-        // Check for assessment state
-        const userDataPath = path.join(__dirname, 'data/mbti', `${phone}.json`);
-        let userData = null;
-        let inAssessment = false;
-        
-        try {
-            const data = await fs.readFile(userDataPath, 'utf-8');
-            userData = JSON.parse(data);
-            inAssessment = true;
-        } catch (error) {
-            // Not in assessment
-        }
-
-        // Handle initial greeting or start command
-        if (!inAssessment && (message.body.toLowerCase() === 'hi' || 
-            message.body.toLowerCase() === 'hello' ||
-            message.body.toLowerCase() === 'start')) {
-            const greeting = `Hello! I'm SABA – your AI personality psychologist from IMJD.asia, powered by Sulnaq Consulting and PAITECH under the PECTAA initiative.\n\n` +
-                           `Would you like to begin a guided MBTI session to understand your personality type? It only takes a few minutes and can help you in personal, academic, and professional life.\n\n` +
-                           `Reply with 'YES' to begin the assessment.`;
-            await message.reply(greeting);
-            return;
-        }
-
-        // Handle assessment start
-        if (!inAssessment && message.body.toLowerCase() === 'yes') {
-            // Initialize new assessment
-            userData = {
-                userId: phone,
-                answers: {},
-                timestamp: new Date().toISOString(),
-                assessmentComplete: false,
-                mbtiType: null,
-                learningProgress: {
-                    topics: Object.fromEntries(
-                        Object.keys(TOPIC_TREES).map(topic => [topic, {
-                            completed: [],
-                            current: null,
-                            lastAccessed: null
-                        }])
-                    ),
-                    currentGoals: [],
-                    achievements: []
-                },
-                conversationHistory: [],
-                emotionalStates: []
-            };
-            await fs.mkdir(path.join(__dirname, 'data/mbti'), { recursive: true });
-            await fs.writeFile(userDataPath, JSON.stringify(userData, null, 2));
-
-            // Send first question
-            const firstQuestion = `Let's begin your MBTI assessment!\n\n` +
-                                `*Question 1*\n${mbtiQuestions[1].text}\n\n` +
-                                `*A)* ${mbtiQuestions[1].A}\n` +
-                                `*B)* ${mbtiQuestions[1].B}\n\n` +
-                                `Reply with A or B.`;
-            await message.reply(firstQuestion);
-            return;
-        }
-
-        // Handle assessment answers
-        if (inAssessment && (message.body.toUpperCase() === 'A' || message.body.toUpperCase() === 'B')) {
-            const currentQuestion = Object.keys(userData.answers).length + 1;
-            userData.answers[currentQuestion] = message.body.toUpperCase();
-            await fs.writeFile(userDataPath, JSON.stringify(userData, null, 2));
-
-            if (currentQuestion === 16) {
-                // Calculate MBTI type
-                const type = calculateMBTIType(userData.answers);
-                const typeInfo = mbtiTypes[type];
-                
-                // Send results
-                const result = `🎯 *Your MBTI Assessment Results*\n\n` +
-                             `Your personality type is: *${type} - ${typeInfo.name}*\n\n` +
-                             `📝 *Description*\n${typeInfo.description}\n\n` +
-                             `💪 *Your Strengths*\n${typeInfo.strengths.map(s => '• ' + s).join('\n')}\n\n` +
-                             `🌱 *Growth Areas*\n${typeInfo.growth_areas.map(g => '• ' + g).join('\n')}\n\n` +
-                             `Would you like to:\n` +
-                             `1. Get a detailed PDF report\n` +
-                             `2. Speak to a certified psychologist\n` +
-                             `3. Learn more about your type\n\n` +
-                             `Reply with the number of your choice.`;
-                await message.reply(result);
-            } else {
-                // Send next question
-                const nextQ = mbtiQuestions[currentQuestion + 1];
-                const nextQuestion = `*Question ${currentQuestion + 1}*\n${nextQ.text}\n\n` +
-                                   `*A)* ${nextQ.A}\n` +
-                                   `*B)* ${nextQ.B}\n\n` +
-                                   `Reply with A or B.`;
-                await message.reply(nextQuestion);
-            }
-            return;
-        }
-
-        // Handle invalid responses during assessment
-        if (inAssessment) {
-            await message.reply("Please respond with either A or B to continue the assessment.");
-            return;
-        }
-
-        // Handle post-assessment conversation with emotional AI
-        if (userData.assessmentComplete) {
-            // Track conversation in history
-            userData.conversationHistory.push({
-                role: 'user',
-                content: message.body,
-                timestamp: new Date().toISOString()
-            });
-
-            // Get AI response
-            const aiResponse = await getEmpatheticResponse(
-                message.body,
-                userData.mbtiType,
-                userData.conversationHistory
-            );
-
-            // Update user's learning progress
-            const currentTopic = userData.learningProgress.topics[Object.keys(userData.learningProgress.topics)[0]];
-            if (currentTopic && currentTopic.current) {
-                currentTopic.lastAccessed = new Date().toISOString();
-            }
-
-            // Store response in history
-            userData.conversationHistory.push({
-                role: 'assistant',
-                content: aiResponse,
-                timestamp: new Date().toISOString()
-            });
-
-            // Save updated user data
-            await fs.writeFile(userDataPath, JSON.stringify(userData, null, 2));
-
-            // Send response
-            await message.reply(aiResponse);
-            return;
-        }
-
-        // Default response for unrecognized commands
-        await message.reply("Hello! To start your MBTI personality assessment, please reply with 'START'.");
-
-    } catch (error) {
-        console.error("Error processing message:", error);
-        await message.reply("I apologize, but I'm having trouble processing your message right now. Please try again in a moment.");
-    }
-});
-
-// Initialize WhatsApp client with error handling
-client.initialize()
-    .catch(err => {
-        console.error('Failed to initialize WhatsApp client:', err);
-        qrCode = null;
-        isClientReady = false;
-        io.emit("error", "Failed to initialize WhatsApp");
-    });
-
 // Socket connection handler
 io.on("connection", (socket) => {
     console.log("Frontend connected");
-    
-    // Send current QR code if available and not ready
-    if (qrCode && !isClientReady) {
-        socket.emit("qr", qrCode);
-    }
-    
-    // Send ready state if client is ready
-    if (isClientReady) {
-        socket.emit("ready");
-    }
 
     socket.on("disconnect", () => {
         console.log("Frontend disconnected");
     });
 });
 
-// Calculate MBTI type from answers
+// Calculate SNTI type from answers
 function calculateMBTIType(answers) {
     let E = 0, I = 0, S = 0, N = 0, T = 0, F = 0, J = 0, P = 0;
     

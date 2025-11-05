@@ -100,79 +100,7 @@ export default function Admin() {
     </div>
   );
 
-  const renderWhatsApp = () => (
-    <div className="space-y-6">
-      {/* WhatsApp Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">WhatsApp Messages</h3>
-          <p className="text-3xl font-bold text-green-600">2,847</p>
-          <p className="text-sm text-gray-500 mt-1">Total processed</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Active Conversations</h3>
-          <p className="text-3xl font-bold text-blue-600">156</p>
-          <p className="text-sm text-gray-500 mt-1">Currently ongoing</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Assessments via WhatsApp</h3>
-          <p className="text-3xl font-bold text-purple-600">673</p>
-          <p className="text-sm text-gray-500 mt-1">Completed successfully</p>
-        </div>
-      </div>
 
-      {/* Connection Status */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Connection Status</h3>
-        </div>
-        <div className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-              <span className="text-gray-900">WhatsApp Web Connected</span>
-            </div>
-            <span className="text-sm text-gray-500">Last connected: 2 hours ago</span>
-          </div>
-          <div className="mt-4 text-sm text-gray-600">
-            <p>• Automatic MBTI assessments: ✓ Active</p>
-            <p>• Psychology chat support: ✓ Active</p>
-            <p>• Message logging: ✓ Enabled</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent WhatsApp Activity */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Recent WhatsApp Activity</h3>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {[
-            { phone: '+923001234567', action: 'Completed MBTI Assessment', time: '2 hours ago', type: 'INFP' },
-            { phone: '+923007654321', action: 'Started Psychology Chat', time: '3 hours ago', type: 'Support' },
-            { phone: '+923009876543', action: 'Requested Assessment Retry', time: '4 hours ago', type: 'ESTJ' },
-            { phone: '+923005555555', action: 'Completed MBTI Assessment', time: '5 hours ago', type: 'ISFJ' },
-          ].map((activity, index) => (
-            <div key={index} className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{activity.phone}</p>
-                  <p className="text-sm text-gray-500">{activity.action}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">{activity.time}</p>
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {activity.type}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   const renderSettings = () => (
     <div className="bg-white rounded-lg shadow">
@@ -196,7 +124,6 @@ export default function Admin() {
             {[
               { id: 'overview', name: 'Overview' },
               { id: 'users', name: 'Users' },
-              { id: 'whatsapp', name: 'WhatsApp' },
               { id: 'settings', name: 'Settings' }
             ].map((tab) => (
               <button
@@ -217,7 +144,6 @@ export default function Admin() {
         {/* Tab Content */}
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'users' && renderUsers()}
-        {activeTab === 'whatsapp' && renderWhatsApp()}
         {activeTab === 'settings' && renderSettings()}
       </div>
     </div>

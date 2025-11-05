@@ -331,25 +331,33 @@ function generateUniqueId() {
 }
 
 /**
- * Get or create session by IP address
+ * Get existing session or create new one
+ * @param {string} identifier - Session identifier (email-phone or IP address)
+ * @returns {Object} - Session object
  */
-export function getOrCreateSession(ipAddress) {
-    let session = sessions.get(ipAddress);
+export function getOrCreateSession(identifier) {
+    let session = sessions.get(identifier);
     
     if (!session) {
         session = {
             id: generateUniqueId(),
-            ipAddress,
+            identifier: identifier, // Store the identifier (could be email-phone or IP)
+            ipAddress: identifier, // Keep for backward compatibility
             name: null,
-            state: 'NAME_REQUEST', // NAME_REQUEST, TEST_IN_PROGRESS, TEST_COMPLETE
+            userInfo: null, // Will store: {name, phone, email, rollNumber, institution}
+            state: 'NAME_REQUEST', // NAME_REQUEST, ASSESSMENT_START, TEST_IN_PROGRESS, TEST_COMPLETE
             currentQuestion: 0,
             answers: [],
             mbtiType: null,
             createdAt: new Date(),
+            updatedAt: new Date(),
             conversationHistory: []
         };
-        sessions.set(ipAddress, session);
-        console.log(`New session created: ${session.id} for IP: ${ipAddress}`);
+        sessions.set(identifier, session);
+        console.log(`✅ New session created: ${session.id} for identifier: ${identifier.substring(0, 20)}...`);
+        
+        // Persist immediately so admin can see incomplete sessions even after restart
+        saveSession(session).catch(err => console.error('Failed to persist new session:', err));
     }
     
     return session;
@@ -358,11 +366,20 @@ export function getOrCreateSession(ipAddress) {
 /**
  * Update session data
  */
-export function updateSession(ipAddress, updates) {
-    const session = sessions.get(ipAddress);
+/**
+ * Update existing session
+ * @param {string} identifier - Session identifier (email-phone or IP address)
+ * @param {Object} updates - Updates to apply to session
+ * @returns {Object} - Updated session object
+ */
+export function updateSession(identifier, updates) {
+    const session = sessions.get(identifier);
     if (session) {
-        Object.assign(session, updates);
-        sessions.set(ipAddress, session);
+        Object.assign(session, updates, { updatedAt: new Date() });
+        sessions.set(identifier, session);
+        
+        // Persist updates so admin always sees current state
+        saveSession(session).catch(err => console.error('Failed to persist session update:', err));
     }
     return session;
 }

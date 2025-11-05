@@ -5,7 +5,7 @@ function MBTIAssessment() {
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
 
-  // Sample MBTI questions (you can expand this)
+  // Sample SNTI questions (you can expand this)
   const questions = [
     {
       id: 1,
@@ -60,7 +60,7 @@ function MBTIAssessment() {
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Your MBTI Results</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Your SNTI Results</h2>
             <div className="bg-blue-50 rounded-lg p-6 mb-6">
               <h3 className="text-2xl font-semibold text-blue-900">{calculateResults()}</h3>
             </div>
@@ -89,7 +89,7 @@ function MBTIAssessment() {
       <div className="bg-white rounded-lg shadow-lg p-8">
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">MBTI Assessment</h2>
+            <h2 className="text-2xl font-bold text-gray-900">SNTI Assessment</h2>
             <span className="text-sm text-gray-500">
               Question {currentQuestion + 1} of {questions.length}
             </span>

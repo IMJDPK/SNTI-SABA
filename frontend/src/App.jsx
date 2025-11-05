@@ -3,7 +3,9 @@ import Home from './pages/Home';
 import MBTIAssessment from './pages/MBTIAssessment';
 import PsychologyChat from './pages/PsychologyChat';
 import Admin from './pages/Admin';
-import WhatsAppIntegration from './components/WhatsAppIntegration';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
+import SabaLogo from './assets/saba-logo.png';
 
 function App() {
   return (
@@ -14,8 +16,12 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
-                <Link to="/" className="text-xl font-bold text-gray-900">
-                  SABA
+                <Link to="/" className="flex items-center">
+                  <img 
+                    src={SabaLogo} 
+                    alt="SABA" 
+                    className="h-20 w-auto"
+                  />
                 </Link>
               </div>
               <div className="flex items-center space-x-8">
@@ -29,19 +35,13 @@ function App() {
                   to="/mbti-assessment" 
                   className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
                 >
-                  MBTI Assessment
+                  SNTI Assessment
                 </Link>
                 <Link 
                   to="/psychology-chat" 
                   className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   Psychology Chat
-                </Link>
-                <Link 
-                  to="/whatsapp" 
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  WhatsApp
                 </Link>
                 <Link 
                   to="/admin" 
@@ -59,8 +59,9 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/mbti-assessment" element={<MBTIAssessment />} />
           <Route path="/psychology-chat" element={<PsychologyChat />} />
-          <Route path="/whatsapp" element={<WhatsAppIntegration />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/old" element={<Admin />} />
         </Routes>
       </div>
     </Router>
