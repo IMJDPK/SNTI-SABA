@@ -450,6 +450,9 @@ const AdminDashboard = () => {
                             <p className="font-semibold text-gray-900">{s.name || '—'}</p>
                             <p className="text-sm text-gray-600">{s.email || '—'}</p>
                             <p className="text-sm text-gray-500">{s.phone || '—'}</p>
+                            {s.age !== null && s.age !== undefined && (
+                              <p className="text-sm text-gray-700">Age: {s.age}</p>
+                            )}
                             {s.rollNumber && (<p className="text-xs text-gray-400 mt-1">Roll: {s.rollNumber}</p>)}
                           </div>
                         </td>

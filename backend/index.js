@@ -533,15 +533,17 @@ app.get('/api/admin/sessions', async (req, res) => {
         sessions = sessions.map(s => {
             const ui = s.userInfo || {};
             const paymentStatus = findPaymentStatus(ui.email, ui.phone);
+            const totalQ = s.totalQuestions || 20; // Use dynamic total from session
             const progress = s.state === 'TEST_IN_PROGRESS' && Array.isArray(s.answers)
-                ? `${Math.min(s.answers.length, 20)}/20`
-                : (s.state === 'TEST_COMPLETE' ? '20/20' : null);
+                ? `${Math.min(s.answers.length, totalQ)}/${totalQ}`
+                : (s.state === 'TEST_COMPLETE' ? `${totalQ}/${totalQ}` : null);
             return {
                 id: s.id,
                 identifier: s.identifier || s.ipAddress,
                 name: s.name || ui.name || null,
                 email: ui.email || null,
                 phone: ui.phone || null,
+                age: ui.age || null,
                 rollNumber: ui.rollNumber || null,
                 institution: ui.institution || null,
                 state: s.state,
@@ -549,7 +551,9 @@ app.get('/api/admin/sessions', async (req, res) => {
                 createdAt: s.createdAt,
                 updatedAt: s.updatedAt || s.createdAt,
                 paymentStatus,
-                progress
+                progress,
+                assessmentVariant: s.assessmentVariant || 'classic',
+                language: s.language || 'english'
             };
         });
 

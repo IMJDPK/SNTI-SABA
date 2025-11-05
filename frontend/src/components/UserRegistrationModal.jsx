@@ -4,9 +4,11 @@ const UserRegistrationModal = ({ onSubmit, onClose }) => {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    age: '',
     rollNumber: '',
     institution: '', // School or University name
-    email: ''
+    email: '',
+    language: 'english' // Default language: english or urdu
   });
   
   const [errors, setErrors] = useState({});
@@ -30,6 +32,14 @@ const UserRegistrationModal = ({ onSubmit, onClose }) => {
       newErrors.phone = 'Enter valid Pakistani mobile (03XXXXXXXXX)';
     }
 
+    // Age validation
+    const ageNum = parseInt(formData.age, 10);
+    if (!String(formData.age).trim()) {
+      newErrors.age = 'Age is required';
+    } else if (Number.isNaN(ageNum) || ageNum < 10 || ageNum > 100) {
+      newErrors.age = 'Enter a valid age (10-100)';
+    }
+
     // Roll number validation
     if (!formData.rollNumber.trim()) {
       newErrors.rollNumber = 'Roll number is required';
@@ -48,6 +58,11 @@ const UserRegistrationModal = ({ onSubmit, onClose }) => {
       newErrors.email = 'Email is required';
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Enter a valid email address';
+    }
+
+    // Language validation
+    if (!formData.language || !['english', 'urdu'].includes(formData.language)) {
+      newErrors.language = 'Please select a language';
     }
 
     setErrors(newErrors);
@@ -69,9 +84,11 @@ const UserRegistrationModal = ({ onSubmit, onClose }) => {
         ...formData,
         name: formData.name.trim(),
         phone: formData.phone.replace(/[-\s]/g, ''),
+        age: parseInt(formData.age, 10),
         rollNumber: formData.rollNumber.trim(),
         institution: formData.institution.trim(),
-        email: formData.email.trim().toLowerCase()
+        email: formData.email.trim().toLowerCase(),
+        language: formData.language
       };
 
       await onSubmit(cleanedData);
@@ -105,6 +122,15 @@ const UserRegistrationModal = ({ onSubmit, onClose }) => {
                 Please provide your information before starting the SNTI assessment
               </p>
             </div>
+            {/* Close (X) Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close registration"
+              className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-full w-10 h-10 flex items-center justify-center shadow-sm"
+            >
+              ✕
+            </button>
           </div>
         </div>
 
@@ -181,6 +207,69 @@ const UserRegistrationModal = ({ onSubmit, onClose }) => {
             {errors.email && (
               <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
                 <span>⚠</span> {errors.email}
+              </p>
+            )}
+          </div>
+
+          {/* Age */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Age <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={10}
+              max={100}
+              placeholder="Enter your age"
+              value={formData.age}
+              onChange={(e) => handleChange('age', e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition ${
+                errors.age ? 'border-red-500 bg-red-50' : 'border-gray-300'
+              }`}
+              disabled={isSubmitting}
+            />
+            {errors.age && (
+              <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                <span>⚠</span> {errors.age}
+              </p>
+            )}
+          </div>
+
+          {/* Language Selection */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Preferred Language / زبان <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleChange('language', 'english')}
+                className={`py-3 px-4 rounded-lg font-semibold border-2 transition ${
+                  formData.language === 'english'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                }`}
+                disabled={isSubmitting}
+              >
+                🇬🇧 English
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange('language', 'urdu')}
+                className={`py-3 px-4 rounded-lg font-semibold border-2 transition ${
+                  formData.language === 'urdu'
+                    ? 'bg-purple-600 text-white border-purple-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400'
+                }`}
+                disabled={isSubmitting}
+              >
+                🇵🇰 اردو
+              </button>
+            </div>
+            {errors.language && (
+              <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                <span>⚠</span> {errors.language}
               </p>
             )}
           </div>

@@ -7,7 +7,9 @@ import {
     updateSession, 
     saveSession, 
     calculateMBTIType,
+    calculateMBTITypeYesNo,
     SNTI_QUESTIONS,
+    SNTI_QUESTIONS_BALANCED,
     MBTI_TYPES
 } from './session_manager.js';
 
@@ -39,6 +41,20 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
         if (userInfo && !session.userInfo) {
             session.userInfo = userInfo;
             session.name = userInfo.name;
+            
+            // Determine assessment variant based on age
+            const age = parseInt(userInfo.age, 10);
+            if (age >= 10 && age <= 17) {
+                session.assessmentVariant = 'balanced';
+                session.totalQuestions = 40;
+            } else {
+                session.assessmentVariant = 'classic';
+                session.totalQuestions = 20;
+            }
+            
+            // Set language preference
+            session.language = userInfo.language || 'english';
+            
             // Generate session ID with phone last 4 digits for easy identification
             const timestamp = Date.now().toString().slice(-6);
             const phoneDigits = userInfo.phone.slice(-4);
@@ -46,7 +62,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
             // Skip name request state, go directly to assessment start
             session.state = 'ASSESSMENT_START';
             
-            console.log(`👤 User registered: ${userInfo.name} (${userInfo.email}), Session: ${session.id}`);
+            console.log(`👤 User registered: ${userInfo.name} (${userInfo.email}), Age: ${age}, Variant: ${session.assessmentVariant}, Language: ${session.language}, Session: ${session.id}`);
         }
         
         // Add user message to conversation history
@@ -64,17 +80,38 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
             updateSession(sessionIdentifier, session);
             
             const institutionText = session.userInfo.institution ? ` from ${session.userInfo.institution}` : '';
-            response = `Hello ${session.name}!${institutionText} 👋 It's wonderful to meet you!\n\n` +
-                      `Your unique session ID is: **${session.id}**\n` +
-                      `(Please save this ID - you can use it to continue our conversation anytime!)\n\n` +
-                      `I'm here to guide you through the **SNTI TEST BY SULNAQ x IMJD** - a comprehensive personality assessment based on the Myers-Briggs Type Indicator (MBTI).\n\n` +
-                      `This test will help you:\n` +
-                      `✨ Discover your unique personality type\n` +
-                      `💡 Understand your strengths and areas for growth\n` +
-                      `🎯 Get personalized career guidance\n` +
-                      `❤️ Learn about your relationship patterns\n\n` +
-                      `The test consists of 20 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
-                      `Ready to begin, ${session.name}? Reply with "START" to begin your journey! 🚀`;
+            const institutionTextUrdu = session.userInfo.institution ? ` ${session.userInfo.institution} سے` : '';
+            
+            const isBalanced = session.assessmentVariant === 'balanced';
+            const questionCount = session.totalQuestions || 20;
+            const answerFormat = isBalanced ? 'YES or NO' : '"A" or "B"';
+            const answerFormatUrdu = isBalanced ? 'ہاں یا نہیں' : '"A" یا "B"';
+            
+            if (session.language === 'urdu') {
+                response = `ہیلو ${session.name}!${institutionTextUrdu} 👋 آپ سے مل کر بہت خوشی ہوئی!\n\n` +
+                          `آپ کا منفرد سیشن آئی ڈی ہے: **${session.id}**\n` +
+                          `(براہ کرم اس آئی ڈی کو محفوظ کریں - آپ اسے کسی بھی وقت ہماری بات چیت جاری رکھنے کے لیے استعمال کر سکتے ہیں!)\n\n` +
+                          `میں آپ کو **SNTI TEST BY SULNAQ x IMJD** میں رہنمائی کرنے کے لیے یہاں ہوں - یہ Myers-Briggs Type Indicator (MBTI) پر مبنی ایک جامع شخصیت کا جائزہ ہے۔\n\n` +
+                          `یہ ٹیسٹ آپ کو مدد کرے گا:\n` +
+                          `✨ اپنی منفرد شخصیت کی قسم دریافت کریں\n` +
+                          `💡 اپنی طاقتوں اور بہتری کے شعبوں کو سمجھیں\n` +
+                          `🎯 ذاتی کیریئر کی رہنمائی حاصل کریں\n` +
+                          `❤️ اپنے تعلقات کے نمونوں کے بارے میں جانیں\n\n` +
+                          `ٹیسٹ ${questionCount} احتیاط سے تیار کردہ سوالات پر مشتمل ہے۔ کوئی صحیح یا غلط جواب نہیں ہے - بس اپنے ساتھ ایماندار رہیں!\n\n` +
+                          `شروع کرنے کے لیے تیار ہیں، ${session.name}؟ اپنے سفر کو شروع کرنے کے لیے "START" کے ساتھ جواب دیں! 🚀`;
+            } else {
+                response = `Hello ${session.name}!${institutionText} 👋 It's wonderful to meet you!\n\n` +
+                          `Your unique session ID is: **${session.id}**\n` +
+                          `(Please save this ID - you can use it to continue our conversation anytime!)\n\n` +
+                          `I'm here to guide you through the **SNTI TEST BY SULNAQ x IMJD** - a comprehensive personality assessment based on the Myers-Briggs Type Indicator (MBTI).\n\n` +
+                          `This test will help you:\n` +
+                          `✨ Discover your unique personality type\n` +
+                          `💡 Understand your strengths and areas for growth\n` +
+                          `🎯 Get personalized career guidance\n` +
+                          `❤️ Learn about your relationship patterns\n\n` +
+                          `The test consists of ${questionCount} carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
+                          `Ready to begin, ${session.name}? Reply with "START" to begin your journey! 🚀`;
+            }
         }
         
         // STATE: NAME_REQUEST - Ask for name and generate ID
@@ -98,7 +135,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                           `🎯 Get personalized career guidance\n` +
                           `❤️ Learn about your relationship patterns\n\n` +
                           `The test consists of 20 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
-                          `Ready to begin, ${session.name}? Reply with "START" to begin your journey! 🚀`;
+                          `Ready to begin, ${session.name}? Reply with \"START\" to begin your journey! 🚀`;
             } else if (isNameLike) {
                 session.name = userMessage.trim();
                 session.state = 'TEST_INTRO';
@@ -114,7 +151,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                           `🎯 Get personalized career guidance\n` +
                           `❤️ Learn about your relationship patterns\n\n` +
                           `The test consists of 20 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
-                          `Ready to begin, ${session.name}? Reply with "START" to begin your journey! 🚀`;
+                          `Ready to begin, ${session.name}? Reply with \"START\" to begin your journey! 🚀`;
             } else {
                 response = `Hello! 👋 Welcome to the **SNTI TEST BY SULNAQ x IMJD**!\n\n` +
                           `I'm your friendly psychology assistant, and I'll be guiding you through a personalized personality assessment.\n\n` +
@@ -124,39 +161,105 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
         
         // STATE: TEST_INTRO - Waiting for START command
         else if (session.state === 'TEST_INTRO') {
-            if (userMessage.toLowerCase().includes('start') || userMessage.toLowerCase().includes('yes') || userMessage.toLowerCase().includes('ready')) {
+            if (userMessage.toLowerCase().includes('start') || userMessage.toLowerCase().includes('yes') || userMessage.toLowerCase().includes('ready') || userMessage.toLowerCase().includes('شروع')) {
                 session.state = 'TEST_IN_PROGRESS';
                 session.currentQuestion = 0;
                 updateSession(sessionIdentifier, session);
                 
-                const question = SNTI_QUESTIONS[0];
-                response = `Excellent, ${session.name}! Let's begin! 🎯\n\n` +
-                          `**Question 1 of 20**\n\n` +
-                          `${question.text}\n\n` +
-                          `A) ${question.A}\n` +
-                          `B) ${question.B}\n\n` +
-                          `Please reply with "A" or "B"`;
+                // Determine which question bank to use
+                const isBalanced = session.assessmentVariant === 'balanced';
+                const questionBank = isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS;
+                const question = questionBank[0];
+                const totalQ = session.totalQuestions || 20;
+                
+                if (isBalanced) {
+                    // YES/NO format for balanced
+                    if (session.language === 'urdu') {
+                        response = `بہترین، ${session.name}! چلیں شروع کرتے ہیں! 🎯\n\n` +
+                                  `**سوال 1 از ${totalQ}**\n\n` +
+                                  `${question.textUrdu}\n\n` +
+                                  `براہ کرم "ہاں" یا "نہیں" کے ساتھ جواب دیں`;
+                    } else {
+                        response = `Excellent, ${session.name}! Let's begin! 🎯\n\n` +
+                                  `**Question 1 of ${totalQ}**\n\n` +
+                                  `${question.text}\n\n` +
+                                  `Please reply with "YES" or "NO"`;
+                    }
+                } else {
+                    // A/B format for classic
+                    if (session.language === 'urdu') {
+                        response = `بہترین، ${session.name}! چلیں شروع کرتے ہیں! 🎯\n\n` +
+                                  `**سوال 1 از ${totalQ}**\n\n` +
+                                  `${question.textUrdu}\n\n` +
+                                  `A) ${question.AUrdu}\n` +
+                                  `B) ${question.BUrdu}\n\n` +
+                                  `براہ کرم "A" یا "B" کے ساتھ جواب دیں`;
+                    } else {
+                        response = `Excellent, ${session.name}! Let's begin! 🎯\n\n` +
+                                  `**Question 1 of ${totalQ}**\n\n` +
+                                  `${question.text}\n\n` +
+                                  `A) ${question.A}\n` +
+                                  `B) ${question.B}\n\n` +
+                                  `Please reply with "A" or "B"`;
+                    }
+                }
             } else {
-                response = `No problem, ${session.name}! Take your time. 😊\n\n` +
-                          `The SNTI TEST is a powerful tool for self-discovery. When you're ready to begin, just reply with "START"!\n\n` +
-                          `If you have any questions about the test, feel free to ask!`;
+                if (session.language === 'urdu') {
+                    response = `کوئی مسئلہ نہیں، ${session.name}! اپنا وقت لیں۔ 😊\n\n` +
+                              `SNTI TEST خود دریافت کے لیے ایک طاقتور ذریعہ ہے۔ جب آپ شروع کرنے کے لیے تیار ہوں تو "START" کے ساتھ جواب دیں!\n\n` +
+                              `اگر آپ کو ٹیسٹ کے بارے میں کوئی سوال ہے تو بلا جھجھک پوچھیں!`;
+                } else {
+                    response = `No problem, ${session.name}! Take your time. 😊\n\n` +
+                              `The SNTI TEST is a powerful tool for self-discovery. When you're ready to begin, just reply with "START"!\n\n` +
+                              `If you have any questions about the test, feel free to ask!`;
+                }
             }
         }
         
         // STATE: TEST_IN_PROGRESS - Ask questions and collect answers
         else if (session.state === 'TEST_IN_PROGRESS') {
             const answer = userMessage.trim().toUpperCase();
+            const isBalanced = session.assessmentVariant === 'balanced';
+            const questionBank = isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS;
+            const totalQ = session.totalQuestions || 20;
             
-            if (answer === 'A' || answer === 'B') {
-                // Save the answer
-                session.answers.push(answer);
+            let validAnswer = false;
+            let normalizedAnswer = '';
+            
+            if (isBalanced) {
+                // Strict YES/NO validation for balanced variant
+                // Accept: YES, Y, NO, N, ہاں, نہیں (case-insensitive)
+                if (answer === 'YES' || answer === 'Y' || answer === 'ہاں') {
+                    validAnswer = true;
+                    normalizedAnswer = 'YES';
+                } else if (answer === 'NO' || answer === 'N' || answer === 'نہیں') {
+                    validAnswer = true;
+                    normalizedAnswer = 'NO';
+                }
+            } else {
+                // A/B validation for classic variant
+                if (answer === 'A' || answer === 'B') {
+                    validAnswer = true;
+                    normalizedAnswer = answer;
+                }
+            }
+            
+            if (validAnswer) {
+                // Save the normalized answer
+                session.answers.push(normalizedAnswer);
                 session.currentQuestion++;
                 updateSession(sessionIdentifier, session);
                 
                 // Check if test is complete
-                if (session.currentQuestion >= SNTI_QUESTIONS.length) {
-                    // Calculate SNTI type
-                    const mbtiType = calculateMBTIType(session.answers);
+                if (session.currentQuestion >= totalQ) {
+                    // Calculate MBTI type
+                    let mbtiType;
+                    if (isBalanced) {
+                        mbtiType = calculateMBTITypeYesNo(session.answers, questionBank);
+                    } else {
+                        mbtiType = calculateMBTIType(session.answers);
+                    }
+                    
                     session.mbtiType = mbtiType;
                     session.state = 'TEST_COMPLETE';
                     updateSession(sessionIdentifier, session);
@@ -167,40 +270,104 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                     // Get type description
                     const typeInfo = MBTI_TYPES[mbtiType];
                     
-                    response = `🎉 **Congratulations, ${session.name}!** You've completed the SNTI TEST! 🎉\n\n` +
-                              `**Your Personality Type: ${mbtiType}**\n` +
-                              `**"${typeInfo.name}"** - ${typeInfo.title}\n\n` +
-                              `**About Your Type:**\n${typeInfo.description}\n\n` +
-                              `**Your Strengths:**\n${typeInfo.strengths.map(s => `✓ ${s}`).join('\n')}\n\n` +
-                              `**Areas for Growth:**\n${typeInfo.weaknesses.map(w => `→ ${w}`).join('\n')}\n\n` +
-                              `**Career Paths That Suit You:**\n${typeInfo.careers.slice(0, 4).map(c => `💼 ${c}`).join('\n')}\n\n` +
-                              `**In Relationships:**\n${typeInfo.relationships}\n\n` +
-                              `**Personal Growth Advice:**\n${typeInfo.growth}\n\n` +
-                              `---\n\n` +
-                              `Your results have been saved with ID: **${session.id}**\n\n` +
-                              `${session.name}, feel free to ask me anything about your personality type, or we can continue our conversation about psychology, personal growth, or any challenges you're facing! 😊`;
+                    if (session.language === 'urdu') {
+                        response = `🎉 **مبارک ہو، ${session.name}!** آپ نے SNTI TEST مکمل کر لیا! 🎉\n\n` +
+                                  `**آپ کی شخصیت کی قسم: ${mbtiType}**\n` +
+                                  `**\"${typeInfo.name}\"** - ${typeInfo.title}\n\n` +
+                                  `**آپ کی قسم کے بارے میں:**\n${typeInfo.description}\n\n` +
+                                  `**آپ کی طاقتیں:**\n${typeInfo.strengths.map(s => `✓ ${s}`).join('\n')}\n\n` +
+                                  `**بہتری کے شعبے:**\n${typeInfo.weaknesses.map(w => `→ ${w}`).join('\n')}\n\n` +
+                                  `**آپ کے لیے موزوں کیریئر راستے:**\n${typeInfo.careers.slice(0, 4).map(c => `💼 ${c}`).join('\n')}\n\n` +
+                                  `**تعلقات میں:**\n${typeInfo.relationships}\n\n` +
+                                  `**ذاتی ترقی کا مشورہ:**\n${typeInfo.growth}\n\n` +
+                                  `---\n\n` +
+                                  `آپ کے نتائج آئی ڈی کے ساتھ محفوظ کر دیے گئے ہیں: **${session.id}**\n\n` +
+                                  `${session.name}، بلا جھجھک مجھ سے اپنی شخصیت کی قسم کے بارے میں کچھ بھی پوچھیں، یا ہم نفسیات، ذاتی ترقی، یا کسی بھی چیلنج کے بارے میں بات چیت جاری رکھ سکتے ہیں! 😊`;
+                    } else {
+                        response = `🎉 **Congratulations, ${session.name}!** You've completed the SNTI TEST! 🎉\n\n` +
+                                  `**Your Personality Type: ${mbtiType}**\n` +
+                                  `**\"${typeInfo.name}\"** - ${typeInfo.title}\n\n` +
+                                  `**About Your Type:**\n${typeInfo.description}\n\n` +
+                                  `**Your Strengths:**\n${typeInfo.strengths.map(s => `✓ ${s}`).join('\n')}\n\n` +
+                                  `**Areas for Growth:**\n${typeInfo.weaknesses.map(w => `→ ${w}`).join('\n')}\n\n` +
+                                  `**Career Paths That Suit You:**\n${typeInfo.careers.slice(0, 4).map(c => `💼 ${c}`).join('\n')}\n\n` +
+                                  `**In Relationships:**\n${typeInfo.relationships}\n\n` +
+                                  `**Personal Growth Advice:**\n${typeInfo.growth}\n\n` +
+                                  `---\n\n` +
+                                  `Your results have been saved with ID: **${session.id}**\n\n` +
+                                  `${session.name}, feel free to ask me anything about your personality type, or we can continue our conversation about psychology, personal growth, or any challenges you're facing! 😊`;
+                    }
                 } else {
                     // Ask next question
-                    const question = SNTI_QUESTIONS[session.currentQuestion];
-                    const progress = `${session.currentQuestion + 1}/20`;
+                    const question = questionBank[session.currentQuestion];
+                    const progress = `${session.currentQuestion + 1}/${totalQ}`;
                     
-                    response = `Thanks, ${session.name}! 📝\n\n` +
-                              `**Question ${progress}**\n\n` +
-                              `${question.text}\n\n` +
-                              `A) ${question.A}\n` +
-                              `B) ${question.B}\n\n` +
-                              `Please reply with "A" or "B"`;
+                    if (isBalanced) {
+                        // YES/NO format
+                        if (session.language === 'urdu') {
+                            response = `شکریہ، ${session.name}! 📝\n\n` +
+                                      `**سوال ${progress}**\n\n` +
+                                      `${question.textUrdu}\n\n` +
+                                      `براہ کرم "ہاں" یا "نہیں" کے ساتھ جواب دیں`;
+                        } else {
+                            response = `Thanks, ${session.name}! 📝\n\n` +
+                                      `**Question ${progress}**\n\n` +
+                                      `${question.text}\n\n` +
+                                      `Please reply with "YES" or "NO"`;
+                        }
+                    } else {
+                        // A/B format
+                        if (session.language === 'urdu') {
+                            response = `شکریہ، ${session.name}! 📝\n\n` +
+                                      `**سوال ${progress}**\n\n` +
+                                      `${question.textUrdu}\n\n` +
+                                      `A) ${question.AUrdu}\n` +
+                                      `B) ${question.BUrdu}\n\n` +
+                                      `براہ کرم "A" یا "B" کے ساتھ جواب دیں`;
+                        } else {
+                            response = `Thanks, ${session.name}! 📝\n\n` +
+                                      `**Question ${progress}**\n\n` +
+                                      `${question.text}\n\n` +
+                                      `A) ${question.A}\n` +
+                                      `B) ${question.B}\n\n` +
+                                      `Please reply with "A" or "B"`;
+                        }
+                    }
                 }
             } else {
-                // Invalid answer
-                const question = SNTI_QUESTIONS[session.currentQuestion];
-                const progress = `${session.currentQuestion + 1}/20`;
+                // Invalid answer - re-prompt with same question
+                const question = questionBank[session.currentQuestion];
+                const progress = `${session.currentQuestion + 1}/${totalQ}`;
                 
-                response = `${session.name}, please choose either "A" or "B" 😊\n\n` +
-                          `**Question ${progress}**\n\n` +
-                          `${question.text}\n\n` +
-                          `A) ${question.A}\n` +
-                          `B) ${question.B}`;
+                if (isBalanced) {
+                    // Error message for YES/NO variant
+                    if (session.language === 'urdu') {
+                        response = `${session.name}، براہ کرم صرف "ہاں" یا "نہیں" کے ساتھ جواب دیں۔ 😊\n\n` +
+                                  `**سوال ${progress}**\n\n` +
+                                  `${question.textUrdu}\n\n` +
+                                  `براہ کرم "ہاں" یا "نہیں" کے ساتھ جواب دیں`;
+                    } else {
+                        response = `${session.name}, please reply with only "YES" or "NO" 😊\n\n` +
+                                  `**Question ${progress}**\n\n` +
+                                  `${question.text}\n\n` +
+                                  `Please reply with "YES" or "NO"`;
+                    }
+                } else {
+                    // Error message for A/B variant
+                    if (session.language === 'urdu') {
+                        response = `${session.name}، براہ کرم "A" یا "B" میں سے انتخاب کریں 😊\n\n` +
+                                  `**سوال ${progress}**\n\n` +
+                                  `${question.textUrdu}\n\n` +
+                                  `A) ${question.AUrdu}\n` +
+                                  `B) ${question.BUrdu}`;
+                    } else {
+                        response = `${session.name}, please choose either "A" or "B" 😊\n\n` +
+                                  `**Question ${progress}**\n\n` +
+                                  `${question.text}\n\n` +
+                                  `A) ${question.A}\n` +
+                                  `B) ${question.B}`;
+                    }
+                }
             }
         }
         

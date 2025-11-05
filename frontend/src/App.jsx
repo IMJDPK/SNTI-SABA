@@ -5,6 +5,7 @@ import PsychologyChat from './pages/PsychologyChat';
 import Admin from './pages/Admin';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import PersonalityProfile from './pages/PersonalityProfile';
 import SabaLogo from './assets/saba-logo.png';
 
 function App() {
@@ -59,6 +60,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/mbti-assessment" element={<MBTIAssessment />} />
           <Route path="/psychology-chat" element={<PsychologyChat />} />
+          <Route path="/personality/:type" element={<PersonalityProfile />} />
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/old" element={<Admin />} />

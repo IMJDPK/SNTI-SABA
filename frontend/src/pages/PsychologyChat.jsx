@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GeminiLogo from '../assets/gemini-logo.png';
 import PaymentModal from '../components/PaymentModal';
 import UserRegistrationModal from '../components/UserRegistrationModal';
@@ -6,6 +7,7 @@ import UserRegistrationModal from '../components/UserRegistrationModal';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function PsychologyChat() {
+  const navigate = useNavigate();
   const [showRegistration, setShowRegistration] = useState(true);
   const [userInfo, setUserInfo] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -124,6 +126,22 @@ function PsychologyChat() {
         mbtiType: data.mbtiType,
         progress: data.progress
       });
+
+      // If test is complete, store session and redirect to profile page
+      if (data.state === 'ASSESSMENT_COMPLETE' && data.mbtiType) {
+        // Store session info for profile page
+        localStorage.setItem('snti_test_session', JSON.stringify({
+          sessionId: data.sessionId,
+          userName: data.userName,
+          mbtiType: data.mbtiType,
+          userInfo: userInfo
+        }));
+        
+        // Redirect to personality profile page after short delay
+        setTimeout(() => {
+          navigate(`/personality/${data.mbtiType.toLowerCase()}`);
+        }, 2000);
+      }
       
       const aiResponse = {
         id: messages.length + 2,
@@ -204,7 +222,11 @@ function PsychologyChat() {
       {showRegistration && (
         <UserRegistrationModal
           onSubmit={handleUserRegistration}
-          onClose={() => {}} // Required but not used - registration is mandatory
+          onClose={() => {
+            // Navigate back to home if user dismisses the registration
+            setShowRegistration(false);
+            navigate('/');
+          }}
         />
       )}
 
