@@ -10,6 +10,7 @@ const AdminDashboard = () => {
   const [sessionPayment, setSessionPayment] = useState('ALL'); // ALL | VERIFIED | PENDING | REJECTED | NONE
   const [sessionPersonality, setSessionPersonality] = useState('ALL'); // ALL | INTJ | INTP | ENTJ | ... (16 types)
   const [isLoading, setIsLoading] = useState(true);
+  const [userStats, setUserStats] = useState(null);
   const [adminEmail, setAdminEmail] = useState('');
   const navigate = useNavigate();
 
@@ -24,6 +25,7 @@ const AdminDashboard = () => {
     }
     
     setAdminEmail(email);
+    fetchUserStats();
     if (activeTab === 'PAYMENTS') {
       fetchPayments();
     } else {
@@ -50,6 +52,19 @@ const AdminDashboard = () => {
       setIsLoading(false);
     }
   };
+
+  const fetchUserStats = async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const resp = await fetch(`${API_URL}/api/admin/user-stats`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
+      });
+      const data = await resp.json();
+      if (data.success) setUserStats(data);
+    } catch (e) {
+      console.error('Failed to fetch user stats', e);
+    }
+  }
 
   const handleApprove = async (paymentId) => {
     if (!confirm('Are you sure you want to approve this payment?')) return;
@@ -223,7 +238,29 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Stats Cards */}
+        {/* Global Stats Cards */}
+        {userStats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+              <p className="text-sm text-gray-600 mb-1">Total Users</p>
+              <p className="text-3xl font-bold text-blue-600">{userStats.totals.totalUsers}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+              <p className="text-sm text-gray-600 mb-1">Tests Started</p>
+              <p className="text-3xl font-bold text-indigo-600">{userStats.totals.totalTestsStarted}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+              <p className="text-sm text-gray-600 mb-1">Tests Completed</p>
+              <p className="text-3xl font-bold text-green-600">{userStats.totals.totalTestsCompleted}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-amber-500">
+              <p className="text-sm text-gray-600 mb-1">Active Tests</p>
+              <p className="text-3xl font-bold text-amber-600">{userStats.totals.activeTests}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Tab-specific Stats Cards */}
         {activeTab === 'PAYMENTS' ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">

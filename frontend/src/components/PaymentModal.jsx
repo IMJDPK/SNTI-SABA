@@ -4,7 +4,7 @@ import JazzCashQR from '../assets/jazzcash-qr.png';
 const PaymentModal = ({ 
   serviceType, // 'report' or 'ai-session'
   personalityType,
-  testResults,
+  // testResults,
   onClose,
   onSubmit 
 }) => {
@@ -27,7 +27,7 @@ const PaymentModal = ({
     
     try {
       await onSubmit(formData);
-    } catch (err) {
+    } catch {
       setError('Failed to submit payment details. Please try again.');
       setIsSubmitting(false);
     }

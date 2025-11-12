@@ -12,6 +12,7 @@ import {
     SNTI_QUESTIONS_BALANCED,
     MBTI_TYPES
 } from './session_manager.js';
+import { incrementCounter } from './metrics_store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,10 +47,8 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
             const age = parseInt(userInfo.age, 10);
             if (age >= 10 && age <= 17) {
                 session.assessmentVariant = 'balanced';
-                session.totalQuestions = 40;
             } else {
                 session.assessmentVariant = 'classic';
-                session.totalQuestions = 20;
             }
             
             // Set language preference
@@ -71,6 +70,28 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
             text: userMessage,
             timestamp: new Date()
         });
+
+        // Safety: check for crisis / self-harm language and handle transparently
+        const crisisKeywords = ['suicide', 'kill myself', 'end my life', 'i want to die', 'hopeless', 'self-harm', 'want to die', 'hurt myself', 'suicidal'];
+        const lowerMsg = (userMessage || '').toLowerCase();
+        const containsCrisis = crisisKeywords.some(k => lowerMsg.includes(k));
+        if (containsCrisis) {
+            // Don't attempt covert detection. Provide immediate supportive response and resources.
+            session.conversationHistory.push({ sender: 'assistant', text: 'CRISIS_RESPONSE_TRIGGERED', timestamp: new Date() });
+            updateSession(sessionIdentifier, session);
+            const crisisResponse = `I'm really sorry you're feeling this way — I want to help keep you safe. If you're thinking about harming yourself or ending your life, please contact your local emergency services right now or call a crisis hotline. ` +
+                `If you're in the United States you can call or text 988 to reach the Suicide & Crisis Lifeline. ` +
+                `If you're elsewhere, please reach out to local emergency services or a trusted person nearby. Would you like me to help find resources or connect you with professional support?`;
+
+            return {
+                response: crisisResponse,
+                sessionId: session.id,
+                userName: session.name,
+                state: 'CRISIS',
+                mbtiType: session.mbtiType,
+                progress: null
+            };
+        }
         
         let response = '';
         
@@ -78,15 +99,30 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
         if (session.state === 'ASSESSMENT_START') {
             session.state = 'TEST_INTRO';
             updateSession(sessionIdentifier, session);
-            
+
             const institutionText = session.userInfo.institution ? ` from ${session.userInfo.institution}` : '';
             const institutionTextUrdu = session.userInfo.institution ? ` ${session.userInfo.institution} سے` : '';
-            
+
             const isBalanced = session.assessmentVariant === 'balanced';
-            const questionCount = session.totalQuestions || 20;
+            // Determine question bank and total count dynamically
+            const questionBank = isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS;
+            // By default use full bank length unless explicitly set
+            session.totalQuestions = session.totalQuestions || questionBank.length;
+            // Shuffle and store per-session so repeated runs show different orders
+            function shuffleArray(arr) {
+                const a = arr.slice();
+                for (let i = a.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [a[i], a[j]] = [a[j], a[i]];
+                }
+                return a;
+            }
+            session.questionBank = shuffleArray(questionBank).slice(0, session.totalQuestions);
+            updateSession(sessionIdentifier, session);
+            const questionCount = session.totalQuestions;
             const answerFormat = isBalanced ? 'YES or NO' : '"A" or "B"';
             const answerFormatUrdu = isBalanced ? 'ہاں یا نہیں' : '"A" یا "B"';
-            
+
             if (session.language === 'urdu') {
                 response = `ہیلو ${session.name}!${institutionTextUrdu} 👋 آپ سے مل کر بہت خوشی ہوئی!\n\n` +
                           `آپ کا منفرد سیشن آئی ڈی ہے: **${session.id}**\n` +
@@ -134,7 +170,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                           `💡 Understand your strengths and areas for growth\n` +
                           `🎯 Get personalized career guidance\n` +
                           `❤️ Learn about your relationship patterns\n\n` +
-                          `The test consists of 20 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
+                          `The test consists of 12 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
                           `Ready to begin, ${session.name}? Reply with \"START\" to begin your journey! 🚀`;
             } else if (isNameLike) {
                 session.name = userMessage.trim();
@@ -150,7 +186,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                           `💡 Understand your strengths and areas for growth\n` +
                           `🎯 Get personalized career guidance\n` +
                           `❤️ Learn about your relationship patterns\n\n` +
-                          `The test consists of 20 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
+                          `The test consists of 12 carefully crafted questions. There are no right or wrong answers - just be honest with yourself!\n\n` +
                           `Ready to begin, ${session.name}? Reply with \"START\" to begin your journey! 🚀`;
             } else {
                 response = `Hello! 👋 Welcome to the **SNTI TEST BY SULNAQ x IMJD**!\n\n` +
@@ -165,12 +201,13 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                 session.state = 'TEST_IN_PROGRESS';
                 session.currentQuestion = 0;
                 updateSession(sessionIdentifier, session);
+                try { await incrementCounter('totalTestsStarted', 1); } catch {}
                 
-                // Determine which question bank to use
+                // Use the per-session prepared question bank if available
                 const isBalanced = session.assessmentVariant === 'balanced';
-                const questionBank = isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS;
+                const questionBank = session.questionBank || (isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS);
                 const question = questionBank[0];
-                const totalQ = session.totalQuestions || 20;
+                const totalQ = session.totalQuestions || questionBank.length;
                 
                 if (isBalanced) {
                     // YES/NO format for balanced
@@ -220,8 +257,8 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
         else if (session.state === 'TEST_IN_PROGRESS') {
             const answer = userMessage.trim().toUpperCase();
             const isBalanced = session.assessmentVariant === 'balanced';
-            const questionBank = isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS;
-            const totalQ = session.totalQuestions || 20;
+            const questionBank = session.questionBank || (isBalanced ? SNTI_QUESTIONS_BALANCED : SNTI_QUESTIONS);
+            const totalQ = session.totalQuestions || questionBank.length;
             
             let validAnswer = false;
             let normalizedAnswer = '';
@@ -254,8 +291,8 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                 if (session.currentQuestion >= totalQ) {
                     // Calculate MBTI type
                     let mbtiType;
-                    if (isBalanced) {
-                        mbtiType = calculateMBTITypeYesNo(session.answers, questionBank);
+                    if (session.assessmentVariant === 'balanced') {
+                        mbtiType = calculateMBTITypeYesNo(session.answers, session.questionBank || questionBank);
                     } else {
                         mbtiType = calculateMBTIType(session.answers);
                     }
@@ -263,6 +300,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                     session.mbtiType = mbtiType;
                     session.state = 'TEST_COMPLETE';
                     updateSession(sessionIdentifier, session);
+                    try { await incrementCounter('totalTestsCompleted', 1); } catch {}
                     
                     // Save session to file system
                     await saveSession(session);
@@ -299,7 +337,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                     }
                 } else {
                     // Ask next question
-                    const question = questionBank[session.currentQuestion];
+                    const question = (session.questionBank || questionBank)[session.currentQuestion];
                     const progress = `${session.currentQuestion + 1}/${totalQ}`;
                     
                     if (isBalanced) {
@@ -336,7 +374,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                 }
             } else {
                 // Invalid answer - re-prompt with same question
-                const question = questionBank[session.currentQuestion];
+                const question = (session.questionBank || questionBank)[session.currentQuestion];
                 const progress = `${session.currentQuestion + 1}/${totalQ}`;
                 
                 if (isBalanced) {
@@ -420,7 +458,7 @@ Respond to their message with empathy and personalized guidance:`;
             userName: session.name,
             state: session.state,
             mbtiType: session.mbtiType,
-            progress: session.state === 'TEST_IN_PROGRESS' ? `${session.currentQuestion}/${SNTI_QUESTIONS.length}` : null
+            progress: session.state === 'TEST_IN_PROGRESS' ? `${session.currentQuestion}/${session.totalQuestions || (session.questionBank ? session.questionBank.length : SNTI_QUESTIONS.length)}` : null
         };
         
     } catch (error) {

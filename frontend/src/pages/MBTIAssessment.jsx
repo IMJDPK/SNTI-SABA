@@ -1,31 +1,94 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function MBTIAssessment() {
+  const navigate = useNavigate();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
 
-  // Sample SNTI questions (you can expand this)
+  useEffect(() => {
+    // Check if user is logged in
+    const userData = localStorage.getItem('snti_user');
+    if (!userData) {
+      navigate('/login');
+      return;
+    }
+  }, [navigate]);
+
+  // Sample SNTI questions in Truity slider format
   const questions = [
     {
       id: 1,
-      text: "You find it easy to introduce yourself to other people.",
-      category: "E/I"
+      leftStatement: "I am often disorganized",
+      rightStatement: "I keep myself organized",
+      category: "J/P"
     },
     {
       id: 2,
-      text: "You often get so lost in thoughts that you ignore or forget your surroundings.",
-      category: "S/N"
-    },
-    {
-      id: 3,
-      text: "You think that everyone's views should be respected regardless of whether they are supported by facts or not.",
+      leftStatement: "I make decisions with my head",
+      rightStatement: "I make decisions with my heart",
       category: "T/F"
     },
     {
+      id: 3,
+      leftStatement: "I like to try to innovate",
+      rightStatement: "I like to use trusted methods",
+      category: "S/N"
+    },
+    {
       id: 4,
-      text: "You like to have a to-do list for each day.",
+      leftStatement: "I keep my thoughts to myself",
+      rightStatement: "I speak up",
+      category: "E/I"
+    },
+    {
+      id: 5,
+      leftStatement: "I seek attention from others",
+      rightStatement: "I avoid attention from others",
+      category: "E/I"
+    },
+    {
+      id: 6,
+      leftStatement: "I focus on possibilities",
+      rightStatement: "I focus on reality",
+      category: "S/N"
+    },
+    {
+      id: 7,
+      leftStatement: "I prefer flexible schedules",
+      rightStatement: "I prefer structured routines",
       category: "J/P"
+    },
+    {
+      id: 8,
+      leftStatement: "I value logic over feelings",
+      rightStatement: "I value feelings over logic",
+      category: "T/F"
+    },
+    {
+      id: 9,
+      leftStatement: "I feel energized by social events",
+      rightStatement: "I feel drained by social events",
+      category: "E/I"
+    },
+    {
+      id: 10,
+      leftStatement: "I prefer abstract concepts",
+      rightStatement: "I prefer concrete facts",
+      category: "S/N"
+    },
+    {
+      id: 11,
+      leftStatement: "I make quick decisions",
+      rightStatement: "I keep my options open",
+      category: "J/P"
+    },
+    {
+      id: 12,
+      leftStatement: "I am blunt and direct",
+      rightStatement: "I am tactful and diplomatic",
+      category: "T/F"
     },
   ];
 
@@ -51,8 +114,22 @@ function MBTIAssessment() {
   };
 
   const calculateResults = () => {
-    // Simple calculation for demo purposes
-    return "INFP - The Mediator";
+    // Calculate MBTI type based on answers
+    const personalityType = "INFP"; // Simplified for now
+    
+    // Save test results to localStorage
+    const testSession = {
+      type: personalityType,
+      date: new Date().toISOString(),
+      answers: answers,
+      testType: 'MBTI Assessment'
+    };
+    
+    const sessions = JSON.parse(localStorage.getItem('snti_test_sessions') || '[]');
+    sessions.push(testSession);
+    localStorage.setItem('snti_test_sessions', JSON.stringify(sessions));
+    
+    return `${personalityType} - The Mediator`;
   };
 
   if (showResults) {
@@ -102,25 +179,46 @@ function MBTIAssessment() {
           </div>
         </div>
 
-        <div className="mb-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-6">
-            {questions[currentQuestion].text}
-          </h3>
+        <div className="mb-12">
+          <div className="bg-gradient-to-r from-amber-100 to-amber-50 rounded-lg p-6 mb-8">
+            <p className="text-center text-gray-700 font-medium uppercase text-sm tracking-wide">
+              From each pair, choose the phrase that describes you best.
+            </p>
+          </div>
           
-          <div className="space-y-3">
-            {['Strongly Agree', 'Agree', 'Neutral', 'Disagree', 'Strongly Disagree'].map((option, index) => (
-              <label key={option} className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`question-${questions[currentQuestion].id}`}
-                  value={5 - index}
-                  checked={answers[questions[currentQuestion].id] === 5 - index}
-                  onChange={(e) => handleAnswer(questions[currentQuestion].id, parseInt(e.target.value))}
-                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                />
-                <span className="text-gray-700">{option}</span>
-              </label>
-            ))}
+          {/* Slider Question */}
+          <div className="space-y-8">
+            {/* Left Statement */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex-1 text-left">
+                <p className="text-lg text-gray-700 font-medium">
+                  {questions[currentQuestion].leftStatement}
+                </p>
+              </div>
+              
+              {/* Radio Buttons in Center */}
+              <div className="flex items-center justify-center space-x-4 px-8">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <label key={value} className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`question-${questions[currentQuestion].id}`}
+                      value={value}
+                      checked={answers[questions[currentQuestion].id] === value}
+                      onChange={(e) => handleAnswer(questions[currentQuestion].id, parseInt(e.target.value))}
+                      className="h-6 w-6 text-blue-600 border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </label>
+                ))}
+              </div>
+              
+              {/* Right Statement */}
+              <div className="flex-1 text-right">
+                <p className="text-lg text-gray-700 font-medium">
+                  {questions[currentQuestion].rightStatement}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

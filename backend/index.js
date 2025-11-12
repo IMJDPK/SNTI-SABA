@@ -9,6 +9,10 @@ import { promises as fs } from 'fs';
 import { getEmpatheticResponse, TOPIC_TREES, MBTI_TEMPLATES } from './ai_handler.js';
 import { generateConversationalResponse, handleSNTITestConversation } from './gemini_simple.js';
 import { getAllSessions } from './session_manager.js';
+import dotenv from 'dotenv';
+import { createUser, verifyUser, getAllUsers } from './users_store.js';
+import { getMetrics, incrementCounter, setTotalUsers } from './metrics_store.js';
+import { generateJwt, requireAdmin, requireAuth } from './auth_middleware.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -16,6 +20,9 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Load environment variables
+dotenv.config();
 
 // Middleware
 const allowedOrigins = [
@@ -49,6 +56,51 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
+
+// -----------------
+// Auth: Users (JWT)
+// -----------------
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { name, email, password } = req.body || {};
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, error: 'Name, email, and password are required' });
+        }
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+        }
+        const user = await createUser({ name, email, password });
+        // Update metrics
+        const users = await getAllUsers();
+        await setTotalUsers(users.length);
+        const token = generateJwt({ sub: user.id, email: user.email, name: user.name });
+        return res.json({ success: true, token, user });
+    } catch (err) {
+        return res.status(400).json({ success: false, error: err.message || 'Registration failed' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body || {};
+        if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
+        const user = await verifyUser(email, password);
+        if (!user) return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        const token = generateJwt({ sub: user.id, email: user.email, name: user.name });
+        return res.json({ success: true, token, user });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: 'Login failed' });
+    }
+});
+
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+    return res.json({ success: true, user: { id: req.user.sub, email: req.user.email, name: req.user.name } });
+});
+
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
+    // Stateless JWT logout handled on client; endpoint for symmetry
+    return res.json({ success: true });
+});
 
 // SNTI Questions Database
 const mbtiQuestions = {
@@ -413,14 +465,9 @@ app.post('/api/admin/login', async (req, res) => {
         const ADMIN_PASSWORD = 'LukeSkywalker';
         
         if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-            // Generate simple token (use JWT in production)
-            const token = `admin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            
-            res.json({ 
-                success: true, 
-                token,
-                admin: { email: ADMIN_EMAIL }
-            });
+            // Issue JWT with admin role
+            const token = generateJwt({ role: 'admin', email: ADMIN_EMAIL });
+            res.json({ success: true, token, admin: { email: ADMIN_EMAIL } });
             
             console.log(`Admin login successful: ${email}`);
         } else {
@@ -440,7 +487,7 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // Get all payments (admin endpoint)
-app.get('/api/admin/payments', async (req, res) => {
+app.get('/api/admin/payments', requireAdmin, async (req, res) => {
     try {
         const { status } = req.query; // PENDING, VERIFIED, REJECTED, ALL
         
@@ -476,7 +523,7 @@ app.get('/api/admin/payments', async (req, res) => {
 });
 
 // Get all user sessions (admin endpoint)
-app.get('/api/admin/sessions', async (req, res) => {
+app.get('/api/admin/sessions', requireAdmin, async (req, res) => {
     try {
         const { scope = 'ALL', payment = 'ALL', personality = 'ALL' } = req.query;
 
@@ -584,7 +631,7 @@ app.get('/api/admin/sessions', async (req, res) => {
 });
 
 // Verify or reject payment (admin endpoint)
-app.post('/api/admin/verify-payment', async (req, res) => {
+app.post('/api/admin/verify-payment', requireAdmin, async (req, res) => {
     try {
         const { paymentId, action, rejectionReason } = req.body;
         
@@ -662,6 +709,34 @@ app.post('/api/admin/verify-payment', async (req, res) => {
             error: 'Failed to verify payment',
             message: error.message 
         });
+    }
+});
+
+// Admin user & test statistics
+app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
+    try {
+        const users = await getAllUsers();
+        const metrics = await getMetrics();
+        const sessions = getAllSessions();
+        const activeTests = sessions.filter(s => s.state !== 'TEST_COMPLETE').length;
+        const completedSessions = sessions.filter(s => s.state === 'TEST_COMPLETE');
+        const personalityDistribution = completedSessions.reduce((acc, s) => {
+            if (s.mbtiType) acc[s.mbtiType] = (acc[s.mbtiType] || 0) + 1;
+            return acc;
+        }, {});
+        res.json({
+            success: true,
+            totals: {
+                totalUsers: metrics.totalUsers || users.length,
+                totalTestsStarted: metrics.totalTestsStarted || 0,
+                totalTestsCompleted: metrics.totalTestsCompleted || 0,
+                activeTests
+            },
+            personalityDistribution,
+            users: users.map(u => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt }))
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Failed to load stats' });
     }
 });
 
