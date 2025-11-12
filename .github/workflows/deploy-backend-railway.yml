@@ -1,0 +1,43 @@
+name: Deploy Backend to Railway
+
+on:
+  # Manual trigger so it won't fail before secrets are added
+  workflow_dispatch:
+  # Uncomment to auto-deploy when backend changes are pushed
+  # push:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway (backend/)
+        working-directory: backend
+        env:
+          # Required: create a Railway account token and add it as GitHub secret
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Optional but recommended if you already have a project/service created
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          echo "Deploying to Railway..."
+          # If project/service IDs are provided, link them; otherwise, this uses the default
+          if [ -n "$RAILWAY_PROJECT_ID" ]; then
+            railway link $RAILWAY_PROJECT_ID
+          fi
+          # Note: If you have multiple services, pass --service $RAILWAY_SERVICE_ID
+          railway up --ci || railway deploy --ci || true
+          echo "If this step reported 'Not linked', link the repo to a Railway project in the dashboard or provide RAILWAY_PROJECT_ID/RAILWAY_SERVICE_ID secrets."
