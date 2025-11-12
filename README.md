@@ -255,7 +255,48 @@ python app.py [port]
 ## 📝 API Documentation
 
 ### Authentication
-All API endpoints support both session-based and API key authentication.
+All API endpoints now support JWT-based user authentication. Admin endpoints require either an admin JWT (login via `/api/admin/login`) or an optional `ADMIN_API_KEY` header token if configured.
+
+#### Environment Variables (Backend)
+| Variable | Description |
+|----------|-------------|
+| PORT | Service port (Railway/Render may inject) |
+| NODE_ENV | `production` in deploy |
+| JWT_SECRET_KEY | Long random string for signing JWTs |
+| ADMIN_EMAIL | Admin login email |
+| ADMIN_PASSWORD | Admin login password |
+| ADMIN_API_KEY | Optional static admin token (Authorization: Bearer <key>) |
+| FRONTEND_URL | Deployed frontend origin for CORS |
+| GEMINI_API_KEY | Google Gemini API key |
+| GEMINI_MODEL | Gemini model name (default `gemini-2.0-flash`) |
+
+#### Environment Variables (Frontend / Vercel)
+| Variable | Description |
+|----------|-------------|
+| VITE_API_URL | Base URL of backend API |
+
+#### New Auth Endpoints
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/auth/register` | Create user (name, email, password) |
+| POST | `/api/auth/login` | Obtain JWT |
+| GET | `/api/auth/me` | Validate and fetch current user |
+| POST | `/api/auth/logout` | Client-side token discard (stateless) |
+| POST | `/api/admin/login` | Obtain admin JWT (role=admin) |
+| GET | `/api/admin/user-stats` | Global counts + user list + personality distribution |
+
+#### Deployment (Railway + Vercel)
+1. Push repository to GitHub.
+2. Railway: Create a service from `backend/` directory.
+  - Add env vars from `backend/.env.example`
+  - If persistence needed, attach a Volume or move user storage to a database.
+3. Vercel: Import repo, build using `vercel.json` settings.
+  - Set `VITE_API_URL` to Railway backend URL.
+4. Update `FRONTEND_URL` in backend env to the Vercel domain for strict CORS.
+5. Test: Register, login, run MBTI assessment, verify Admin Dashboard metrics.
+
+#### Test Metrics
+Backend increments `totalTestsStarted` at test start and `totalTestsCompleted` on completion. Admin stats aggregates active vs completed sessions and personality distribution.
 
 ### Response Formats
 ```json

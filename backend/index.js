@@ -460,9 +460,9 @@ app.post('/api/admin/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         
-        // Hardcoded admin credentials (secure in production with env variables)
-        const ADMIN_EMAIL = 'khanjawadkhalid@gmail.com';
-        const ADMIN_PASSWORD = 'LukeSkywalker';
+    // Admin credentials via environment (fallback only for local dev)
+    const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
         
         if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
             // Issue JWT with admin role
