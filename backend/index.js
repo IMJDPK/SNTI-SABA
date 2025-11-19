@@ -58,6 +58,18 @@ app.use(cors({
 app.use(express.json());
 
 // -----------------
+// Simple health & configuration status endpoint
+app.get('/api/health', (req, res) => {
+    const status = {
+        uptime: process.uptime(),
+        timestamp: Date.now(),
+        hasAdminEmail: Boolean(process.env.ADMIN_EMAIL),
+        hasAdminPassword: Boolean(process.env.ADMIN_PASSWORD),
+        model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+        frontendUrl: process.env.FRONTEND_URL || null
+    };
+    res.json({ status: 'ok', ...status });
+});
 // Auth: Users (JWT)
 // -----------------
 app.post('/api/auth/register', async (req, res) => {
@@ -459,11 +471,19 @@ app.post('/api/submit-payment', async (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        
-    // Admin credentials via environment (fallback only for local dev)
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
-        
+        // Enforce environment-defined admin credentials with no insecure fallback in production
+        const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+        const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+        if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+            // Explicit error to surface misconfiguration instead of silently accepting defaults
+            return res.status(500).json({
+                success: false,
+                error: 'Admin credentials not configured',
+                message: 'Set ADMIN_EMAIL and ADMIN_PASSWORD environment variables.'
+            });
+        }
+
         if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
             // Issue JWT with admin role
             const token = generateJwt({ role: 'admin', email: ADMIN_EMAIL });
