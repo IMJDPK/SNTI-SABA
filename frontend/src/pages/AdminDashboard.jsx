@@ -534,6 +534,74 @@ const AdminDashboard = () => {
             <strong>💡 Tip:</strong> Always verify the transaction ID in your JazzCash Business account before approving payments.
           </p>
         </div>
+
+        {/* User Details & Test Results Section */}
+        {userStats && userStats.users && (
+          <div className="bg-white rounded-lg shadow mb-12 p-8">
+            <h2 className="text-2xl font-bold mb-6 text-blue-700">All Users & Test Results</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Phone</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Roll #</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tests</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {userStats.users.map(user => (
+                    <tr key={user.id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 font-semibold text-gray-900">{user.name}</td>
+                      <td className="px-4 py-3 text-sm text-blue-700">{user.email}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{user.phone || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{user.rollNumber || '—'}</td>
+                      <td className="px-4 py-3">
+                        {user.tests.length === 0 ? (
+                          <span className="text-gray-400 text-xs">No tests</span>
+                        ) : (
+                          <table className="min-w-max w-full border border-gray-200 rounded">
+                            <thead>
+                              <tr>
+                                <th className="px-2 py-1 text-xs text-gray-600">Session</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">MBTI</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">Progress</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">State</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">Started</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">Updated</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">Answers</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {user.tests.map(test => (
+                                <tr key={test.sessionId} className="border-t">
+                                  <td className="px-2 py-1 text-xs font-mono bg-gray-50">{test.sessionId}</td>
+                                  <td className="px-2 py-1 text-xs font-bold text-purple-700">{test.mbtiType || '—'}</td>
+                                  <td className="px-2 py-1 text-xs">{test.progress || '—'}</td>
+                                  <td className="px-2 py-1 text-xs">{test.state}</td>
+                                  <td className="px-2 py-1 text-xs">{test.createdAt ? new Date(test.createdAt).toLocaleString() : '—'}</td>
+                                  <td className="px-2 py-1 text-xs">{test.updatedAt ? new Date(test.updatedAt).toLocaleString() : '—'}</td>
+                                  <td className="px-2 py-1 text-xs">
+                                    {Array.isArray(test.answers) && test.answers.length > 0 ? (
+                                      <span className="inline-block bg-gray-100 rounded px-2 py-1 font-mono text-xs text-gray-700">{test.answers.join(', ')}</span>
+                                    ) : (
+                                      <span className="text-gray-400">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

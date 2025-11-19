@@ -6,6 +6,8 @@ const Signup = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
+    rollNumber: '',
     password: '',
     confirmPassword: '',
     agreeToTerms: false
@@ -43,6 +45,15 @@ const Signup = () => {
       newErrors.email = 'Please enter a valid email address';
     }
 
+    // Phone validation
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^\+?[\d\s\-()]{10,}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
+    // Roll number is optional - no validation needed
+
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
@@ -77,7 +88,13 @@ const Signup = () => {
       const resp = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formData.name, email: formData.email, password: formData.password })
+        body: JSON.stringify({ 
+          name: formData.name, 
+          email: formData.email, 
+          phone: formData.phone,
+          rollNumber: formData.rollNumber || null,
+          password: formData.password 
+        })
       });
       const data = await resp.json();
       if (!data.success) {

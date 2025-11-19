@@ -74,14 +74,14 @@ app.get('/api/health', (req, res) => {
 // -----------------
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { name, email, password } = req.body || {};
-        if (!name || !email || !password) {
-            return res.status(400).json({ success: false, error: 'Name, email, and password are required' });
+        const { name, email, password, phone, rollNumber } = req.body || {};
+        if (!name || !email || !password || !phone) {
+            return res.status(400).json({ success: false, error: 'Name, email, password, and phone are required' });
         }
         if (password.length < 6) {
             return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
         }
-        const user = await createUser({ name, email, password });
+        const user = await createUser({ name, email, password, phone, rollNumber });
         // Update metrics
         const users = await getAllUsers();
         await setTotalUsers(users.length);
@@ -744,6 +744,28 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
             if (s.mbtiType) acc[s.mbtiType] = (acc[s.mbtiType] || 0) + 1;
             return acc;
         }, {});
+
+        // Map sessions to users by email (and phone)
+        const userTestsMap = {};
+        sessions.forEach(session => {
+            const email = session.userInfo?.email || session.email || null;
+            if (!email) return;
+            if (!userTestsMap[email]) userTestsMap[email] = [];
+            userTestsMap[email].push({
+                sessionId: session.id,
+                state: session.state,
+                mbtiType: session.mbtiType || null,
+                answers: session.answers || [],
+                createdAt: session.createdAt,
+                updatedAt: session.updatedAt,
+                progress: session.progress || null,
+                assessmentVariant: session.assessmentVariant || 'classic',
+                language: session.language || 'english',
+                rollNumber: session.userInfo?.rollNumber || session.rollNumber || null,
+                institution: session.userInfo?.institution || session.institution || null
+            });
+        });
+
         res.json({
             success: true,
             totals: {
@@ -753,7 +775,16 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
                 activeTests
             },
             personalityDistribution,
-            users: users.map(u => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt }))
+            users: users.map(u => ({
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                phone: u.phone || null,
+                rollNumber: u.rollNumber || null,
+                createdAt: u.createdAt,
+                lastLoginAt: u.lastLoginAt,
+                tests: userTestsMap[u.email] || []
+            }))
         });
     } catch (err) {
         res.status(500).json({ success: false, error: 'Failed to load stats' });

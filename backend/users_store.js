@@ -27,7 +27,7 @@ export async function findUserByEmail(email) {
   return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
 }
 
-export async function createUser({ name, email, password }) {
+export async function createUser({ name, email, password, phone, rollNumber }) {
   await ensureDataFiles();
   const users = await getAllUsers();
   const exists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
@@ -39,13 +39,15 @@ export async function createUser({ name, email, password }) {
     id: uuidv4(),
     name: name.trim(),
     email: email.trim().toLowerCase(),
+    phone: phone ? phone.trim() : null,
+    rollNumber: rollNumber ? rollNumber.trim() : null,
     passwordHash,
     createdAt: new Date().toISOString(),
     lastLoginAt: null
   };
   users.push(user);
   await fs.writeFile(usersFile, JSON.stringify(users, null, 2));
-  return { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt };
+  return { id: user.id, name: user.name, email: user.email, phone: user.phone, rollNumber: user.rollNumber, createdAt: user.createdAt };
 }
 
 export async function verifyUser(email, password) {
