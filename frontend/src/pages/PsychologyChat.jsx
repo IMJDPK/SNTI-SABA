@@ -1,27 +1,47 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GeminiLogo from '../assets/gemini-logo.png';
-import PaymentModal from '../components/PaymentModal';
+
 import UserRegistrationModal from '../components/UserRegistrationModal';
+import GoogleSignInButton from '../components/GoogleSignInButton.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function PsychologyChat() {
   const navigate = useNavigate();
-  const [showRegistration, setShowRegistration] = useState(true);
-  const [userInfo, setUserInfo] = useState(null);
+
+  const storedAssessment = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('snti_test_session') || 'null');
+    } catch {
+      return null;
+    }
+  })();
+  const hasAssessment = Boolean(storedAssessment?.mbtiType);
+
+  const [showRegistration, setShowRegistration] = useState(!hasAssessment);
+  const [userInfo, setUserInfo] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('snti_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [requiresGoogleSignIn, setRequiresGoogleSignIn] = useState(
+    hasAssessment && userInfo?.provider !== 'google'
+  );
+  const [authError, setAuthError] = useState('');
   const [sessionInfo, setSessionInfo] = useState({
     sessionId: null,
-    userName: null,
-    state: null,
-    mbtiType: null,
+    userName: userInfo?.name || null,
+    state: hasAssessment ? 'POST_ASSESSMENT_CHAT' : null,
+    mbtiType: storedAssessment?.mbtiType || null,
     progress: null
   });
-  const [showPaymentModal, setShowPaymentModal] = useState(null); // 'report' or 'ai-session'
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -31,6 +51,53 @@ function PsychologyChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const initializePostAssessmentChat = async () => {
+      if (!hasAssessment || requiresGoogleSignIn || messages.length > 0) return;
+
+      try {
+        setIsTyping(true);
+        const token = localStorage.getItem('userToken');
+        const response = await fetch(`${API_URL}/api/psychology-chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            mode: 'post_assessment',
+            message: `Hello, I completed my SNTI assessment. My type is ${storedAssessment.mbtiType}.`,
+            conversationHistory: [],
+          }),
+        });
+
+        const data = await response.json();
+        if (response.status === 401 && data.requiresGoogleSignIn) {
+          setRequiresGoogleSignIn(true);
+          setAuthError(data.message || 'Google sign-in is required for AI guidance chat.');
+          return;
+        }
+        if (!response.ok) throw new Error(data.error || 'Failed to start chat');
+
+        setSessionInfo((current) => ({
+          ...current,
+          sessionId: data.sessionId,
+          userName: data.userName || current.userName,
+          state: data.state,
+          mbtiType: data.mbtiType || current.mbtiType,
+          progress: data.progress || null,
+        }));
+        setMessages([{ id: 1, text: data.response, sender: 'ai', timestamp: new Date() }]);
+      } catch (error) {
+        setAuthError(error.message || 'Unable to initialize chat.');
+      } finally {
+        setIsTyping(false);
+      }
+    };
+
+    initializePostAssessmentChat();
+  }, [hasAssessment, requiresGoogleSignIn, messages.length, storedAssessment?.mbtiType]);
 
   const handleUserRegistration = async (userData) => {
     try {
@@ -99,24 +166,32 @@ function PsychologyChat() {
     setIsTyping(true);
 
     try {
-      // Send message to SNTI TEST backend
+      const token = localStorage.getItem('userToken');
+      // Send message to SNTI backend
       const response = await fetch(`${API_URL}/api/psychology-chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(hasAssessment ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           message: inputMessage,
           conversationHistory: messages,
-          userInfo: userInfo // Include user registration data
+          userInfo: userInfo, // Include user registration data
+          ...(hasAssessment ? { mode: 'post_assessment' } : {}),
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get response from server');
+      const data = await response.json();
+      if (response.status === 401 && data.requiresGoogleSignIn) {
+        setRequiresGoogleSignIn(true);
+        setAuthError(data.message || 'Google sign-in is required for AI guidance chat.');
+        throw new Error('Google sign-in required');
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get response from server');
+      }
       
       // Update session info
       setSessionInfo({
@@ -128,7 +203,7 @@ function PsychologyChat() {
       });
 
       // If test is complete, store session and redirect to profile page
-      if (data.state === 'ASSESSMENT_COMPLETE' && data.mbtiType) {
+      if ((data.state === 'ASSESSMENT_COMPLETE' || data.state === 'TEST_COMPLETE') && data.mbtiType) {
         // Store session info for profile page
         localStorage.setItem('snti_test_session', JSON.stringify({
           sessionId: data.sessionId,
@@ -175,47 +250,6 @@ function PsychologyChat() {
     }
   };
 
-  const handlePaymentSubmit = async (formData) => {
-    try {
-      const response = await fetch(`${API_URL}/api/submit-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          testResults: {
-            mbtiType: sessionInfo.mbtiType,
-            sessionId: sessionInfo.sessionId,
-            userName: sessionInfo.userName
-          }
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setShowPaymentModal(null);
-        setPaymentSuccess(true);
-        
-        // Add success message to chat
-        const successMessage = {
-          id: messages.length + 1,
-          text: `✅ **Payment Details Submitted Successfully!**\n\nThank you for your payment submission.\n\n**Payment ID:** ${data.paymentId}\n**Service:** ${formData.serviceType === 'report' ? 'Detailed Personality Report' : 'AI Psychologist Consultation'}\n**Amount:** PKR 50\n\nYour payment is being verified. You'll receive a confirmation email within 24 hours.\n\nTransaction ID: ${formData.transactionId}`,
-          sender: 'ai',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, successMessage]);
-      } else {
-        throw new Error(data.error || 'Payment submission failed');
-      }
-    } catch (error) {
-      console.error('Payment submission error:', error);
-      alert('Failed to submit payment details. Please try again.');
-      throw error;
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       {/* User Registration Modal */}
@@ -228,6 +262,24 @@ function PsychologyChat() {
             navigate('/');
           }}
         />
+      )}
+
+      {hasAssessment && requiresGoogleSignIn && (
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <p className="mb-3 text-sm text-amber-900">
+            Google sign-in is required to continue AI guidance after assessment. Your saved MBTI profile will be used instantly once sign-in is complete.
+          </p>
+          <GoogleSignInButton
+            onSuccess={(data) => {
+              setUserInfo({ ...data.user, provider: 'google' });
+              setRequiresGoogleSignIn(false);
+              setAuthError('');
+            }}
+            onError={(message) => setAuthError(message)}
+            text="signin_with"
+          />
+          {authError && <p className="mt-3 text-sm text-rose-700">{authError}</p>}
+        </div>
       )}
 
       <div className="bg-white rounded-lg shadow-lg h-[700px] flex flex-col">
@@ -284,58 +336,11 @@ function PsychologyChat() {
             </div>
           )}
           
-          {/* Payment CTAs - Show when test is complete */}
-          {sessionInfo.mbtiType && !paymentSuccess && (
-            <div className="mt-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
-              <div className="mb-3">
-                <h3 className="font-bold text-lg text-gray-900 mb-1">
-                  🎉 Test Complete! Unlock Your Full Results
-                </h3>
-                <p className="text-sm text-gray-600">
-                  You've discovered your personality type: <strong className="text-purple-600">{sessionInfo.mbtiType}</strong>. 
-                  Get deeper insights with our paid services:
-                </p>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-3">
-                <button
-                  onClick={() => setShowPaymentModal('report')}
-                  className="bg-white border-2 border-blue-300 rounded-lg p-4 hover:shadow-lg transition text-left"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="text-3xl">📄</div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 mb-1">Detailed Report</h4>
-                      <p className="text-xs text-gray-600 mb-2">
-                        Comprehensive analysis emailed to you
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-blue-600">PKR 50</span>
-                        <span className="text-xs text-blue-600 font-semibold">→</span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setShowPaymentModal('ai-session')}
-                  className="bg-white border-2 border-green-300 rounded-lg p-4 hover:shadow-lg transition text-left"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="text-3xl">🤖</div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 mb-1">AI Psychologist</h4>
-                      <p className="text-xs text-gray-600 mb-2">
-                        Ask 4 questions to our AI expert
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-green-600">PKR 50</span>
-                        <span className="text-xs text-green-600 font-semibold">→</span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              </div>
+          {sessionInfo.mbtiType && (
+            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-700">
+                🎉 Assessment complete — your type is <strong className="text-blue-700">{sessionInfo.mbtiType}</strong>. All results are free to view.
+              </p>
             </div>
           )}
         </div>
@@ -412,38 +417,25 @@ function PsychologyChat() {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Share your thoughts..."
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              placeholder={requiresGoogleSignIn ? 'Sign in with Google to unlock AI guidance chat...' : 'Share your thoughts...'}
+              disabled={requiresGoogleSignIn}
+              className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:text-gray-500"
               rows="2"
             />
             <button
               onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isTyping}
+              disabled={!inputMessage.trim() || isTyping || requiresGoogleSignIn}
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Send
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            💡 Connected to Google Gemini AI for empathetic, real-time psychological support. Press Enter to send.
+            💡 AI guidance is personalized by your saved SNTI type. Post-assessment chat requires Google sign-in for safety monitoring and secure profile linkage.
           </p>
         </div>
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          serviceType={showPaymentModal}
-          personalityType={sessionInfo.mbtiType}
-          testResults={{
-            sessionId: sessionInfo.sessionId,
-            userName: sessionInfo.userName,
-            progress: sessionInfo.progress
-          }}
-          onClose={() => setShowPaymentModal(null)}
-          onSubmit={handlePaymentSubmit}
-        />
-      )}
     </div>
   );
 }

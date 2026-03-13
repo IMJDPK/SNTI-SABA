@@ -20,11 +20,133 @@ const __dirname = dirname(__filename);
 // Load environment variables from parent directory
 dotenv.config({ path: join(__dirname, '../.env') });
 
-const API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyACoZFv626A3XwkwdRz8Ci-KvAD88fE36U';
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL_NAME = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+const OPENROUTER_URL = process.env.OPENROUTER_URL || 'https://openrouter.ai/api/v1/chat/completions';
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(API_KEY);
+const RISK_KEYWORDS = {
+    RED: [
+        'suicide', 'suicidal', 'kill myself', 'end my life', 'want to die',
+        'self-harm', 'hurt myself', 'i should disappear', 'no reason to live'
+    ],
+    AMBER: [
+        'hopeless', 'panic attacks', 'can\'t sleep', 'drugs', 'alcohol',
+        'violence', 'fight everyone', 'run away', 'drop out', 'worthless'
+    ]
+};
+
+// Initialize Gemini only when a key is configured.
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+
+async function generateAIText(prompt) {
+    // Prefer OpenRouter when configured.
+    if (OPENROUTER_API_KEY) {
+        const response = await fetch(OPENROUTER_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
+                'X-Title': 'SNTI-SABA Psychology Chat'
+            },
+            body: JSON.stringify({
+                model: OPENROUTER_MODEL_NAME,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenRouter request failed (${response.status}): ${errorText.slice(0, 300)}`);
+        }
+
+        const payload = await response.json();
+        const text = payload?.choices?.[0]?.message?.content;
+        if (!text || !text.trim()) {
+            throw new Error('OpenRouter returned an empty response');
+        }
+        return text.trim();
+    }
+
+    if (!genAI) {
+        throw new Error('No AI provider configured. Set OPENROUTER_API_KEY or GEMINI_API_KEY.');
+    }
+
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+    const result = await model.generateContent(prompt);
+    const geminiResponse = await result.response;
+    return geminiResponse.text();
+}
+
+export function evaluateBehaviorRisk(userMessage = '') {
+    const lower = String(userMessage).toLowerCase();
+    const redHits = RISK_KEYWORDS.RED.filter((k) => lower.includes(k));
+    const amberHits = RISK_KEYWORDS.AMBER.filter((k) => lower.includes(k));
+
+    if (redHits.length > 0) {
+        return {
+            level: 'RED',
+            requiresHumanIntervention: true,
+            flags: redHits,
+            note: 'Immediate safeguarding review recommended.'
+        };
+    }
+
+    if (amberHits.length > 0) {
+        return {
+            level: 'AMBER',
+            requiresHumanIntervention: true,
+            flags: amberHits,
+            note: 'Follow-up review recommended within 24 hours.'
+        };
+    }
+
+    return {
+        level: 'GREEN',
+        requiresHumanIntervention: false,
+        flags: [],
+        note: null
+    };
+}
+
+export async function generateTypeAwareGuidanceResponse(userMessage, profile, conversationHistory = []) {
+    const typeCode = profile?.mbtiType || 'UNKNOWN';
+    const studentName = profile?.name || 'Student';
+    const historyLines = (conversationHistory || []).slice(-6).map((m) => {
+        const role = m.sender === 'user' ? 'Student' : 'Assistant';
+        return `${role}: ${m.text}`;
+    }).join('\n');
+
+    const prompt = `You are SABA, a child-safe psychology and learning support assistant.
+
+Safety requirements:
+- Keep language age-appropriate and compassionate.
+- Never shame or frighten the student.
+- If severe self-harm or suicide intent appears, urge immediate contact with local emergency services and a trusted adult.
+- Provide practical coping steps, emotional validation, and clear next actions.
+
+Student profile:
+- Name: ${studentName}
+- MBTI Type: ${typeCode}
+- Risk Tier from assessment: ${profile?.riskTier || 'GREEN'}
+
+Type-aware guidance requirement:
+- Personalize your suggestions to MBTI strengths and growth areas.
+- Start with a supportive acknowledgment, then 2-4 actionable steps.
+
+Conversation context:
+${historyLines || 'No prior messages.'}
+
+Student message:
+${userMessage}
+
+Respond as SABA:`;
+
+    return generateAIText(prompt);
+}
 
 /**
  * Main SNTI TEST conversation handler with session management
@@ -71,11 +193,19 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
             timestamp: new Date()
         });
 
-        // Safety: check for crisis / self-harm language and handle transparently
-        const crisisKeywords = ['suicide', 'kill myself', 'end my life', 'i want to die', 'hopeless', 'self-harm', 'want to die', 'hurt myself', 'suicidal'];
-        const lowerMsg = (userMessage || '').toLowerCase();
-        const containsCrisis = crisisKeywords.some(k => lowerMsg.includes(k));
-        if (containsCrisis) {
+        // Safety monitoring: record risk signals for admin review and human escalation.
+        const riskSignal = evaluateBehaviorRisk(userMessage);
+        if (riskSignal.level !== 'GREEN') {
+            const existingFlags = Array.isArray(session.riskFlags) ? session.riskFlags : [];
+            const mergedFlags = Array.from(new Set([...existingFlags, ...riskSignal.flags]));
+            session.alertLevel = riskSignal.level;
+            session.riskFlags = mergedFlags;
+            session.requiresHumanIntervention = Boolean(riskSignal.requiresHumanIntervention);
+            session.lastRiskAt = new Date().toISOString();
+            updateSession(sessionIdentifier, session);
+        }
+
+        if (riskSignal.level === 'RED') {
             // Don't attempt covert detection. Provide immediate supportive response and resources.
             session.conversationHistory.push({ sender: 'assistant', text: 'CRISIS_RESPONSE_TRIGGERED', timestamp: new Date() });
             updateSession(sessionIdentifier, session);
@@ -89,7 +219,9 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                 userName: session.name,
                 state: 'CRISIS',
                 mbtiType: session.mbtiType,
-                progress: null
+                progress: null,
+                alertLevel: session.alertLevel,
+                requiresHumanIntervention: session.requiresHumanIntervention
             };
         }
         
@@ -411,9 +543,6 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
         
         // STATE: TEST_COMPLETE - Provide guidance and continued conversation
         else if (session.state === 'TEST_COMPLETE') {
-            // Generate personalized response using Gemini AI
-            const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-            
             const typeInfo = MBTI_TYPES[session.mbtiType];
             
             const systemPrompt = `You are an empathetic psychology assistant helping ${session.name} (MBTI Type: ${session.mbtiType} - ${typeInfo.name}).
@@ -438,10 +567,8 @@ ${session.conversationHistory.slice(-5).map(m => `${m.sender === 'user' ? sessio
 Respond to their message with empathy and personalized guidance:`;
 
             const prompt = `${systemPrompt}\n\n${session.name}: ${userMessage}\n\nAssistant:`;
-            
-            const result = await model.generateContent(prompt);
-            const aiResponse = await result.response;
-            response = aiResponse.text();
+
+            response = await generateAIText(prompt);
         }
         
         // Add assistant response to conversation history
@@ -458,7 +585,10 @@ Respond to their message with empathy and personalized guidance:`;
             userName: session.name,
             state: session.state,
             mbtiType: session.mbtiType,
-            progress: session.state === 'TEST_IN_PROGRESS' ? `${session.currentQuestion}/${session.totalQuestions || (session.questionBank ? session.questionBank.length : SNTI_QUESTIONS.length)}` : null
+            progress: session.state === 'TEST_IN_PROGRESS' ? `${session.currentQuestion}/${session.totalQuestions || (session.questionBank ? session.questionBank.length : SNTI_QUESTIONS.length)}` : null,
+            alertLevel: session.alertLevel || 'GREEN',
+            requiresHumanIntervention: Boolean(session.requiresHumanIntervention),
+            riskFlags: session.riskFlags || []
         };
         
     } catch (error) {
@@ -475,8 +605,6 @@ Respond to their message with empathy and personalized guidance:`;
  */
 export async function generatePsychologyResponse(userMessage, context = '') {
     try {
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
         const systemPrompt = `You are an empathetic, professional psychology assistant. 
 Your role is to:
 - Provide supportive, understanding responses
@@ -492,9 +620,7 @@ Respond naturally and conversationally. Be compassionate, non-judgmental, and he
 
         const prompt = `${systemPrompt}\n\nUser: ${userMessage}\n\nAssistant:`;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const text = await generateAIText(prompt);
 
         return text;
     } catch (error) {
@@ -511,8 +637,6 @@ Respond naturally and conversationally. Be compassionate, non-judgmental, and he
  */
 export async function generateConversationalResponse(userMessage, conversationHistory = []) {
     try {
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
         // Build conversation context
         let contextPrompt = `You are an empathetic psychology assistant helping users with their mental health and emotional well-being. Provide supportive, understanding, and professional guidance.\n\n`;
 
@@ -528,9 +652,7 @@ export async function generateConversationalResponse(userMessage, conversationHi
 
         contextPrompt += `User: ${userMessage}\n\nProvide a thoughtful, empathetic response that acknowledges their feelings and offers helpful guidance:\nAssistant:`;
 
-        const result = await model.generateContent(contextPrompt);
-        const response = await result.response;
-        const text = response.text();
+        const text = await generateAIText(contextPrompt);
 
         return text;
     } catch (error) {
@@ -541,5 +663,7 @@ export async function generateConversationalResponse(userMessage, conversationHi
 
 export default {
     generatePsychologyResponse,
-    generateConversationalResponse
+    generateConversationalResponse,
+    generateTypeAwareGuidanceResponse,
+    evaluateBehaviorRisk
 };

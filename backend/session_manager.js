@@ -460,6 +460,10 @@ export function getOrCreateSession(identifier) {
             assessmentVariant: null, // Will be set to 'balanced' or 'classic' based on age
             totalQuestions: null, // Will be set to 40 or 20
             language: 'english', // Default language
+            alertLevel: 'GREEN', // GREEN, AMBER, RED
+            riskFlags: [],
+            requiresHumanIntervention: false,
+            lastRiskAt: null,
             createdAt: new Date(),
             updatedAt: new Date(),
             conversationHistory: []

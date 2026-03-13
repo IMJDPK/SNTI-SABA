@@ -7,12 +7,12 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { promises as fs } from 'fs';
 import { getEmpatheticResponse, TOPIC_TREES, MBTI_TEMPLATES } from './ai_handler.js';
-import { generateConversationalResponse, handleSNTITestConversation } from './gemini_simple.js';
-import { getAllSessions } from './session_manager.js';
+import { generateConversationalResponse, generateTypeAwareGuidanceResponse, evaluateBehaviorRisk, handleSNTITestConversation } from './gemini_simple.js';
+import { getAllSessions, getOrCreateSession, updateSession } from './session_manager.js';
 import dotenv from 'dotenv';
-import { createUser, verifyUser, getAllUsers } from './users_store.js';
+import { createUser, verifyUser, getAllUsers, upsertGoogleUser, saveUserAssessmentResult, getLatestAssessmentByEmail } from './users_store.js';
 import { getMetrics, incrementCounter, setTotalUsers } from './metrics_store.js';
-import { generateJwt, requireAdmin, requireAuth } from './auth_middleware.js';
+import { generateJwt, requireAdmin, requireAuth, verifyJwt } from './auth_middleware.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -23,6 +23,7 @@ const server = http.createServer(app);
 
 // Load environment variables
 dotenv.config();
+const isBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH_FOR_TESTING !== 'false';
 
 // Middleware
 const allowedOrigins = [
@@ -56,6 +57,37 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
+
+function getAuthUserFromRequest(req) {
+    const auth = req.headers['authorization'] || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (!token) return null;
+    try {
+        return verifyJwt(token);
+    } catch {
+        return null;
+    }
+}
+
+async function verifyGoogleIdToken(idToken) {
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Google token verification failed (${response.status}): ${text.slice(0, 200)}`);
+    }
+
+    const payload = await response.json();
+    if (payload.email_verified !== 'true' && payload.email_verified !== true) {
+        throw new Error('Google account email is not verified');
+    }
+
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+    if (expectedClientId && payload.aud !== expectedClientId) {
+        throw new Error('Google token audience mismatch');
+    }
+
+    return payload;
+}
 
 // -----------------
 // Simple health & configuration status endpoint
@@ -102,6 +134,67 @@ app.post('/api/auth/login', async (req, res) => {
         return res.json({ success: true, token, user });
     } catch (err) {
         return res.status(500).json({ success: false, error: 'Login failed' });
+    }
+});
+
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { idToken } = req.body || {};
+        if (!idToken) return res.status(400).json({ success: false, error: 'idToken is required' });
+
+        const googlePayload = await verifyGoogleIdToken(idToken);
+        const user = await upsertGoogleUser({
+            googleId: googlePayload.sub,
+            email: googlePayload.email,
+            name: googlePayload.name,
+            avatar: googlePayload.picture
+        });
+
+        const token = generateJwt({
+            sub: user.id,
+            email: user.email,
+            name: user.name,
+            provider: 'google',
+            googleId: googlePayload.sub
+        });
+
+        return res.json({ success: true, token, user });
+    } catch (err) {
+        return res.status(401).json({ success: false, error: err.message || 'Google sign-in failed' });
+    }
+});
+
+app.post('/api/assessment/result', requireAuth, async (req, res) => {
+    try {
+        const { mbtiType, track, age, riskTier, dimensionScores, traitScores, borderlines, mentalHealth, source } = req.body || {};
+        if (!mbtiType) {
+            return res.status(400).json({ success: false, error: 'mbtiType is required' });
+        }
+
+        const saved = await saveUserAssessmentResult(req.user.email, {
+            mbtiType,
+            track,
+            age,
+            riskTier,
+            dimensionScores,
+            traitScores,
+            borderlines,
+            mentalHealth,
+            source: source || 'SNTI Assessment'
+        });
+
+        return res.json({ success: true, assessment: saved });
+    } catch (err) {
+        return res.status(400).json({ success: false, error: err.message || 'Failed to save assessment result' });
+    }
+});
+
+app.get('/api/assessment/latest', requireAuth, async (req, res) => {
+    try {
+        const latest = await getLatestAssessmentByEmail(req.user.email);
+        return res.json({ success: true, assessment: latest });
+    } catch {
+        return res.status(500).json({ success: false, error: 'Failed to load latest assessment' });
     }
 });
 
@@ -319,10 +412,86 @@ const mbtiTypes = {
 // Add SNTI TEST psychology chat endpoint with session management
 app.post('/api/psychology-chat', async (req, res) => {
     try {
-        const { message, conversationHistory = [], userInfo } = req.body;
+        const { message, conversationHistory = [], userInfo, mode } = req.body;
         
         if (!message || !message.trim()) {
             return res.status(400).json({ error: 'Message is required' });
+        }
+
+        const authUser = getAuthUserFromRequest(req);
+
+        // Post-assessment guidance mode requires verified Google sign-in.
+        if (mode === 'post_assessment') {
+            if (!authUser || authUser.provider !== 'google') {
+                return res.status(401).json({
+                    error: 'Google sign-in required',
+                    requiresGoogleSignIn: true,
+                    message: 'Please sign in with Google to continue AI guidance after assessment.'
+                });
+            }
+
+            const latestAssessment = await getLatestAssessmentByEmail(authUser.email);
+            if (!latestAssessment || !latestAssessment.mbtiType) {
+                return res.status(400).json({
+                    error: 'No saved assessment found',
+                    message: 'Please complete and save the SNTI assessment before starting AI guidance chat.'
+                });
+            }
+
+            const sessionIdentifier = `google-${authUser.email.toLowerCase()}`;
+            const session = getOrCreateSession(sessionIdentifier);
+            const riskSignal = evaluateBehaviorRisk(message);
+            if (riskSignal.level !== 'GREEN') {
+                const mergedFlags = Array.from(new Set([...(session.riskFlags || []), ...riskSignal.flags]));
+                updateSession(sessionIdentifier, {
+                    userInfo: {
+                        ...(session.userInfo || {}),
+                        email: authUser.email,
+                        name: authUser.name
+                    },
+                    name: authUser.name,
+                    alertLevel: riskSignal.level,
+                    riskFlags: mergedFlags,
+                    requiresHumanIntervention: riskSignal.requiresHumanIntervention,
+                    lastRiskAt: new Date().toISOString(),
+                    mbtiType: latestAssessment.mbtiType,
+                    state: 'POST_ASSESSMENT_CHAT'
+                });
+            } else {
+                updateSession(sessionIdentifier, {
+                    userInfo: {
+                        ...(session.userInfo || {}),
+                        email: authUser.email,
+                        name: authUser.name
+                    },
+                    name: authUser.name,
+                    mbtiType: latestAssessment.mbtiType,
+                    state: 'POST_ASSESSMENT_CHAT'
+                });
+            }
+
+            const responseText = await generateTypeAwareGuidanceResponse(
+                message,
+                {
+                    name: authUser.name,
+                    mbtiType: latestAssessment.mbtiType,
+                    riskTier: latestAssessment.riskTier || 'GREEN'
+                },
+                conversationHistory
+            );
+
+            return res.json({
+                response: responseText,
+                sessionId: session.id,
+                userName: authUser.name,
+                state: 'POST_ASSESSMENT_CHAT',
+                mbtiType: latestAssessment.mbtiType,
+                progress: null,
+                alertLevel: riskSignal.level,
+                requiresHumanIntervention: riskSignal.requiresHumanIntervention,
+                riskFlags: riskSignal.flags,
+                timestamp: new Date().toISOString()
+            });
         }
 
         // Create unique session identifier
@@ -345,6 +514,9 @@ app.post('/api/psychology-chat', async (req, res) => {
             state: result.state,
             mbtiType: result.mbtiType,
             progress: result.progress,
+            alertLevel: result.alertLevel || 'GREEN',
+            requiresHumanIntervention: Boolean(result.requiresHumanIntervention),
+            riskFlags: result.riskFlags || [],
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -470,6 +642,11 @@ app.post('/api/submit-payment', async (req, res) => {
 // Admin login endpoint
 app.post('/api/admin/login', async (req, res) => {
     try {
+        if (isBypassEnabled) {
+            const token = generateJwt({ role: 'admin', email: 'admin@snti.local' });
+            return res.json({ success: true, token, admin: { email: 'admin@snti.local' } });
+        }
+
         const { email, password } = req.body;
         // Enforce environment-defined admin credentials with no insecure fallback in production
         const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
@@ -620,7 +797,11 @@ app.get('/api/admin/sessions', requireAdmin, async (req, res) => {
                 paymentStatus,
                 progress,
                 assessmentVariant: s.assessmentVariant || 'classic',
-                language: s.language || 'english'
+                language: s.language || 'english',
+                alertLevel: s.alertLevel || 'GREEN',
+                requiresHumanIntervention: Boolean(s.requiresHumanIntervention),
+                riskFlags: Array.isArray(s.riskFlags) ? s.riskFlags : [],
+                lastRiskAt: s.lastRiskAt || null
             };
         });
 
@@ -762,7 +943,10 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
                 assessmentVariant: session.assessmentVariant || 'classic',
                 language: session.language || 'english',
                 rollNumber: session.userInfo?.rollNumber || session.rollNumber || null,
-                institution: session.userInfo?.institution || session.institution || null
+                institution: session.userInfo?.institution || session.institution || null,
+                alertLevel: session.alertLevel || 'GREEN',
+                requiresHumanIntervention: Boolean(session.requiresHumanIntervention),
+                riskFlags: Array.isArray(session.riskFlags) ? session.riskFlags : []
             });
         });
 
