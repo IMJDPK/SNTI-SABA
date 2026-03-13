@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import PaymentModal from '../components/PaymentModal';
 
 // Personality type data with free preview and locked premium content
 const PERSONALITY_DATA = {
@@ -250,7 +249,6 @@ const PERSONALITY_DATA = {
 const PersonalityProfile = () => {
   const { type } = useParams();
   const navigate = useNavigate();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [sessionInfo, setSessionInfo] = useState(null);
 
@@ -278,10 +276,10 @@ const PersonalityProfile = () => {
           <h1 className="text-4xl font-bold text-gray-800 mb-4">Personality Type Not Found</h1>
           <p className="text-gray-600 mb-6">The personality type "{type}" doesn't exist.</p>
           <button
-            onClick={() => navigate('/psychology-chat')}
+            onClick={() => navigate('/app')}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
           >
-            Take the Test
+            Take the SNTI Assessment
           </button>
         </div>
       </div>
@@ -294,27 +292,6 @@ const PersonalityProfile = () => {
     blue: 'from-blue-600 to-cyan-600',
     yellow: 'from-amber-600 to-orange-600'
   };
-
-  const LockedSection = ({ title, children }) => (
-    <div className="relative">
-      <div className="blur-sm select-none pointer-events-none">
-        {children}
-      </div>
-      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-transparent via-white/80 to-white">
-        <div className="text-center p-6 bg-white rounded-lg shadow-xl border-2 border-blue-200 max-w-md">
-          <div className="text-5xl mb-4">🔒</div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
-          <p className="text-gray-600 mb-4">Unlock detailed insights about your personality type</p>
-          <button
-            onClick={() => setShowPaymentModal(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:shadow-lg transform hover:scale-105 transition"
-          >
-            Unlock Premium Content - PKR 50
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -406,97 +383,79 @@ const PersonalityProfile = () => {
         )}
 
         {activeTab === 'careers' && (
-          <LockedSection title="Career Paths & Professional Success">
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">Ideal Career Paths</h3>
-              <div className="space-y-4">
-                {personality.careers.map((career, idx) => (
-                  <div key={idx} className="p-4 bg-blue-50 rounded-lg">
-                    <span className="text-gray-800 font-medium">{career}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-                <h4 className="font-bold text-lg mb-3">Detailed Career Analysis</h4>
-                <p className="text-gray-700">Comprehensive insights into your ideal work environment, leadership style, team dynamics, and professional growth strategies tailored to your {personality.code} personality type.</p>
-              </div>
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Ideal Career Paths</h3>
+            <div className="space-y-4">
+              {personality.careers.map((career, idx) => (
+                <div key={idx} className="p-4 bg-blue-50 rounded-lg">
+                  <span className="text-gray-800 font-medium">{career}</span>
+                </div>
+              ))}
             </div>
-          </LockedSection>
+            <div className="mt-8 p-6 bg-gray-50 rounded-lg">
+              <h4 className="font-bold text-lg mb-3">Detailed Career Analysis</h4>
+              <p className="text-gray-700">Comprehensive insights into your ideal work environment, leadership style, team dynamics, and professional growth strategies tailored to your {personality.code} personality type.</p>
+            </div>
+          </div>
         )}
 
         {activeTab === 'relationships' && (
-          <LockedSection title="Relationship Dynamics & Compatibility">
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">Relationships & Romance</h3>
-              <p className="text-gray-700 mb-6">{personality.relationships}</p>
-              <div className="space-y-6">
-                <div className="p-6 bg-pink-50 rounded-lg">
-                  <h4 className="font-bold text-lg mb-2">Romantic Compatibility</h4>
-                  <p className="text-gray-700">Discover which personality types are most compatible with {personality.code} and why. Learn about communication styles, conflict resolution, and building lasting connections.</p>
-                </div>
-                <div className="p-6 bg-purple-50 rounded-lg">
-                  <h4 className="font-bold text-lg mb-2">Friendship Dynamics</h4>
-                  <p className="text-gray-700">Understand how {personality.code} types build and maintain friendships, their social needs, and how to nurture meaningful connections.</p>
-                </div>
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Relationships & Romance</h3>
+            <p className="text-gray-700 mb-6">{personality.relationships}</p>
+            <div className="space-y-6">
+              <div className="p-6 bg-pink-50 rounded-lg">
+                <h4 className="font-bold text-lg mb-2">Romantic Compatibility</h4>
+                <p className="text-gray-700">Discover which personality types are most compatible with {personality.code} and why. Learn about communication styles, conflict resolution, and building lasting connections.</p>
+              </div>
+              <div className="p-6 bg-purple-50 rounded-lg">
+                <h4 className="font-bold text-lg mb-2">Friendship Dynamics</h4>
+                <p className="text-gray-700">Understand how {personality.code} types build and maintain friendships, their social needs, and how to nurture meaningful connections.</p>
               </div>
             </div>
-          </LockedSection>
+          </div>
         )}
 
         {activeTab === 'growth' && (
-          <LockedSection title="Personal Growth & Development Plan">
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6">Personal Growth Guide</h3>
-              <p className="text-gray-700 mb-6">{personality.growthTips}</p>
-              <div className="space-y-6">
-                <div className="p-6 bg-indigo-50 rounded-lg">
-                  <h4 className="font-bold text-lg mb-2">Development Roadmap</h4>
-                  <p className="text-gray-700">A personalized plan for developing your weaker functions and maximizing your natural strengths as an {personality.code}.</p>
-                </div>
-                <div className="p-6 bg-teal-50 rounded-lg">
-                  <h4 className="font-bold text-lg mb-2">Stress Management</h4>
-                  <p className="text-gray-700">Learn how {personality.code} types experience and cope with stress, plus practical strategies for maintaining emotional balance.</p>
-                </div>
-                <div className="p-6 bg-emerald-50 rounded-lg">
-                  <h4 className="font-bold text-lg mb-2">Famous {personality.code} Personalities</h4>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {personality.famousPeople.map((person, idx) => (
-                      <span key={idx} className="bg-white px-4 py-2 rounded-full text-sm font-medium">{person}</span>
-                    ))}
-                  </div>
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Personal Growth Guide</h3>
+            <p className="text-gray-700 mb-6">{personality.growthTips}</p>
+            <div className="space-y-6">
+              <div className="p-6 bg-indigo-50 rounded-lg">
+                <h4 className="font-bold text-lg mb-2">Development Roadmap</h4>
+                <p className="text-gray-700">A personalized plan for developing your weaker functions and maximizing your natural strengths as an {personality.code}.</p>
+              </div>
+              <div className="p-6 bg-teal-50 rounded-lg">
+                <h4 className="font-bold text-lg mb-2">Stress Management</h4>
+                <p className="text-gray-700">Learn how {personality.code} types experience and cope with stress, plus practical strategies for maintaining emotional balance.</p>
+              </div>
+              <div className="p-6 bg-emerald-50 rounded-lg">
+                <h4 className="font-bold text-lg mb-2">Famous {personality.code} Personalities</h4>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {personality.famousPeople.map((person, idx) => (
+                    <span key={idx} className="bg-white px-4 py-2 rounded-full text-sm font-medium">{person}</span>
+                  ))}
                 </div>
               </div>
             </div>
-          </LockedSection>
+          </div>
         )}
 
         {/* CTA Banner */}
-        <div className="mt-12 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-8 text-center">
-          <h3 className="text-3xl font-bold mb-4">Unlock Your Full Personality Profile</h3>
+        <div className="mt-12 bg-gradient-to-r from-blue-700 to-cyan-600 text-white rounded-xl p-8 text-center">
+          <h3 className="text-3xl font-bold mb-4">Take the Full SNTI Assessment</h3>
           <p className="text-lg mb-6 opacity-90">
-            Get access to detailed career guidance, relationship insights, and a personalized growth plan for just PKR 50
+            Get your personalised cognitive profile, wellbeing report, and teacher guidance plan — completely free.
           </p>
-          <button
-            onClick={() => setShowPaymentModal(true)}
-            className="bg-white text-blue-600 px-10 py-4 rounded-lg font-bold text-lg hover:shadow-xl transform hover:scale-105 transition"
+          <a
+            href="/app"
+            className="inline-block bg-white text-blue-700 px-10 py-4 rounded-lg font-bold text-lg hover:shadow-xl transform hover:scale-105 transition"
           >
-            Unlock Premium Content Now
-          </button>
+            Start the SNTI Assessment
+          </a>
         </div>
       </div>
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          onClose={() => setShowPaymentModal(false)}
-          serviceType="report"
-          sessionInfo={{
-            mbtiType: personality.code,
-            sessionId: sessionInfo?.sessionId || 'N/A',
-            userName: sessionInfo?.userName || ''
-          }}
-        />
-      )}
     </div>
   );
 };

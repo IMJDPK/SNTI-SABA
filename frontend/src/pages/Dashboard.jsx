@@ -8,14 +8,18 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
     const userData = localStorage.getItem('snti_user');
     if (!userData) {
-      navigate('/login');
-      return;
+      const guestUser = {
+        id: 'test-user',
+        name: 'Test User',
+        email: 'test@snti.local'
+      };
+      localStorage.setItem('snti_user', JSON.stringify(guestUser));
+      setUser(guestUser);
+    } else {
+      setUser(JSON.parse(userData));
     }
-
-    setUser(JSON.parse(userData));
 
     // Load test history from localStorage
     // In production, this would be an API call
