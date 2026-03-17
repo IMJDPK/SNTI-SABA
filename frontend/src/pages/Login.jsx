@@ -67,9 +67,19 @@ const Login = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, password: formData.password })
       });
-      const data = await resp.json();
-      if (!data.success) {
-        setError(data.error || 'Login failed');
+      const raw = await resp.text();
+      let data = null;
+
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = null;
+        }
+      }
+
+      if (!resp.ok || !data?.success) {
+        setError(data?.error || (resp.status === 401 ? 'Invalid credentials' : 'Login failed'));
       } else {
         localStorage.setItem('userToken', data.token);
         localStorage.setItem('snti_user', JSON.stringify(data.user));
@@ -78,7 +88,7 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error', err);
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }

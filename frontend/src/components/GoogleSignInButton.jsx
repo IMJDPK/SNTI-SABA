@@ -45,8 +45,20 @@ function GoogleSignInButton({ onSuccess, onError, text = 'signin_with' }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ idToken: resp.credential })
           });
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error || 'Google sign-in failed');
+          const raw = await res.text();
+          let data = null;
+
+          if (raw) {
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              data = null;
+            }
+          }
+
+          if (!res.ok || !data?.success) {
+            throw new Error(data?.error || 'Google sign-in failed');
+          }
 
           localStorage.setItem('userToken', data.token);
           localStorage.setItem('snti_user', JSON.stringify({ ...data.user, provider: 'google' }));
