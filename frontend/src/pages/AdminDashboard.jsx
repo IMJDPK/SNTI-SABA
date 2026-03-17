@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('PAYMENTS'); // PAYMENTS | SESSIONS
+  const [activeTab, setActiveTab] = useState('PAYMENTS'); // PAYMENTS | SESSIONS | RISK
   const [payments, setPayments] = useState([]);
   const [filter, setFilter] = useState('PENDING');
   const [sessions, setSessions] = useState([]);
   const [sessionScope, setSessionScope] = useState('ALL'); // ALL | ACTIVE | COMPLETED
   const [sessionPayment, setSessionPayment] = useState('ALL'); // ALL | VERIFIED | PENDING | REJECTED | NONE
   const [sessionPersonality, setSessionPersonality] = useState('ALL'); // ALL | INTJ | INTP | ENTJ | ... (16 types)
+  const [userSearch, setUserSearch] = useState('');
+  const [userTestFilter, setUserTestFilter] = useState('ALL');
+  const [userRiskFilter, setUserRiskFilter] = useState('ALL');
+  const [riskLevelFilter, setRiskLevelFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [userStats, setUserStats] = useState(null);
   const [adminEmail, setAdminEmail] = useState('');
@@ -184,6 +189,93 @@ const AdminDashboard = () => {
     total: sessions.length
   };
 
+  const filteredRiskCases = useMemo(() => {
+    const source = userStats?.riskCases || [];
+    if (riskLevelFilter === 'ALL') return source;
+    if (riskLevelFilter === 'FLAGGED') return source.filter((item) => item.alertLevel !== 'GREEN' || item.requiresHumanIntervention);
+    return source.filter((item) => item.alertLevel === riskLevelFilter);
+  }, [riskLevelFilter, userStats]);
+
+  const filteredUsers = useMemo(() => {
+    const source = userStats?.users || [];
+    const searchTerm = userSearch.trim().toLowerCase();
+
+    return source.filter((user) => {
+      const tests = Array.isArray(user.tests) ? user.tests : [];
+      const hasTests = tests.length > 0;
+      const highestAlert = tests.some((test) => test.alertLevel === 'RED')
+        ? 'RED'
+        : tests.some((test) => test.alertLevel === 'AMBER')
+          ? 'AMBER'
+          : 'GREEN';
+
+      const matchesSearch = !searchTerm || [
+        user.name,
+        user.email,
+        user.phone,
+        user.rollNumber,
+        user.institution,
+      ].filter(Boolean).some((value) => String(value).toLowerCase().includes(searchTerm));
+
+      const matchesTests = userTestFilter === 'ALL'
+        || (userTestFilter === 'WITH_TESTS' && hasTests)
+        || (userTestFilter === 'NO_TESTS' && !hasTests);
+
+      const matchesRisk = userRiskFilter === 'ALL'
+        || (userRiskFilter === 'FLAGGED' && highestAlert !== 'GREEN')
+        || highestAlert === userRiskFilter;
+
+      return matchesSearch && matchesTests && matchesRisk;
+    });
+  }, [userRiskFilter, userSearch, userStats, userTestFilter]);
+
+  const handleExportUserResults = () => {
+    const rows = filteredUsers.flatMap((user) => {
+      if (!user.tests || user.tests.length === 0) {
+        return [{
+          Name: user.name,
+          Email: user.email,
+          Phone: user.phone || '',
+          Age: user.age || '',
+          'Roll Number': user.rollNumber || '',
+          Institution: user.institution || '',
+          'Session ID': '',
+          MBTI: '',
+          Progress: '',
+          State: '',
+          'Risk Level': 'GREEN',
+          'Risk Flags': '',
+          'Recommended Outreach': '',
+          'Started At': '',
+          'Updated At': '',
+        }];
+      }
+
+      return user.tests.map((test) => ({
+        Name: user.name,
+        Email: user.email,
+        Phone: user.phone || '',
+        Age: test.age || user.age || '',
+        'Roll Number': test.rollNumber || user.rollNumber || '',
+        Institution: test.institution || user.institution || '',
+        'Session ID': test.sessionId,
+        MBTI: test.mbtiType || '',
+        Progress: test.progress || '',
+        State: test.state || '',
+        'Risk Level': test.alertLevel || 'GREEN',
+        'Risk Flags': Array.isArray(test.riskFlags) ? test.riskFlags.join(', ') : '',
+        'Recommended Outreach': test.recommendedOutreach || '',
+        'Started At': test.createdAt ? new Date(test.createdAt).toLocaleString() : '',
+        'Updated At': test.updatedAt ? new Date(test.updatedAt).toLocaleString() : '',
+      }));
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'User Results');
+    XLSX.writeFile(workbook, 'snti-user-results.xlsx');
+  };
+
   // 16 MBTI personality types
   const PERSONALITY_TYPES = [
     'ALL', 'INTJ', 'INTP', 'ENTJ', 'ENTP',
@@ -225,7 +317,7 @@ const AdminDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Top Tabs */}
         <div className="flex gap-3 mb-6">
-          {['PAYMENTS', 'SESSIONS'].map(tab => (
+          {['PAYMENTS', 'SESSIONS', 'RISK'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -240,7 +332,7 @@ const AdminDashboard = () => {
 
         {/* Global Stats Cards */}
         {userStats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
               <p className="text-sm text-gray-600 mb-1">Total Users</p>
               <p className="text-3xl font-bold text-blue-600">{userStats.totals.totalUsers}</p>
@@ -256,6 +348,10 @@ const AdminDashboard = () => {
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-amber-500">
               <p className="text-sm text-gray-600 mb-1">Active Tests</p>
               <p className="text-3xl font-bold text-amber-600">{userStats.totals.activeTests}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-rose-500">
+              <p className="text-sm text-gray-600 mb-1">Risk Queue</p>
+              <p className="text-3xl font-bold text-rose-600">{userStats.totals.urgentRiskCases || 0}</p>
             </div>
           </div>
         )}
@@ -280,7 +376,7 @@ const AdminDashboard = () => {
               <p className="text-3xl font-bold text-blue-600">{paymentStats.total}</p>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'SESSIONS' ? (
           <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
               <p className="text-sm text-gray-600 mb-1">Active</p>
@@ -305,6 +401,25 @@ const AdminDashboard = () => {
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
               <p className="text-sm text-gray-600 mb-1">Total</p>
               <p className="text-3xl font-bold text-blue-600">{sessionStats.total}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-rose-500">
+              <p className="text-sm text-gray-600 mb-1">Immediate Alerts</p>
+              <p className="text-3xl font-bold text-rose-600">{filteredRiskCases.filter((item) => item.alertLevel === 'RED').length}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-amber-500">
+              <p className="text-sm text-gray-600 mb-1">Follow-Up Needed</p>
+              <p className="text-3xl font-bold text-amber-600">{filteredRiskCases.filter((item) => item.alertLevel === 'AMBER').length}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+              <p className="text-sm text-gray-600 mb-1">Phone Outreach</p>
+              <p className="text-3xl font-bold text-indigo-600">{filteredRiskCases.filter((item) => item.recommendedOutreach?.toLowerCase().includes('phone')).length}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+              <p className="text-sm text-gray-600 mb-1">Flagged Total</p>
+              <p className="text-3xl font-bold text-blue-600">{filteredRiskCases.length}</p>
             </div>
           </div>
         )}
@@ -335,7 +450,7 @@ const AdminDashboard = () => {
               ))}
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'SESSIONS' ? (
           <div className="bg-white rounded-lg shadow mb-6 p-4">
             <div className="flex flex-wrap gap-3 items-center mb-3">
               <span className="text-sm font-semibold text-gray-700">Scope:</span>
@@ -377,6 +492,23 @@ const AdminDashboard = () => {
                   }`}
                 >
                   {type}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow mb-6 p-4">
+            <div className="flex flex-wrap gap-3 items-center">
+              <span className="text-sm font-semibold text-gray-700">Risk Level:</span>
+              {['ALL', 'RED', 'AMBER', 'FLAGGED'].map(level => (
+                <button
+                  key={level}
+                  onClick={() => setRiskLevelFilter(level)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
+                    riskLevelFilter === level ? 'bg-rose-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {level}
                 </button>
               ))}
             </div>
@@ -457,7 +589,7 @@ const AdminDashboard = () => {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'SESSIONS' ? (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {isLoading ? (
               <div className="p-12 text-center">
@@ -551,6 +683,65 @@ const AdminDashboard = () => {
               </div>
             )}
           </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {isLoading ? (
+              <div className="p-12 text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600"></div>
+                <p className="mt-4 text-gray-600">Loading risk assessment queue...</p>
+              </div>
+            ) : filteredRiskCases.length === 0 ? (
+              <div className="p-12 text-center">
+                <span className="text-6xl mb-4 block">🟢</span>
+                <p className="text-gray-600 text-lg">No flagged users in the selected risk level</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">User</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Institution</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Risk Level</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Triggers</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Recommended Action</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Last Alert</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredRiskCases.map((riskCase) => (
+                      <tr key={riskCase.id} className={riskCase.alertLevel === 'RED' ? 'bg-rose-50 hover:bg-rose-100' : 'bg-amber-50 hover:bg-amber-100'}>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-900">{riskCase.name || '—'}</p>
+                          <p className="text-sm text-gray-600">{riskCase.email || '—'}</p>
+                          <p className="text-sm text-gray-500">{riskCase.phone || 'No phone on file'}</p>
+                          {riskCase.age && <p className="text-sm text-gray-700">Age: {riskCase.age}</p>}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{riskCase.institution || '—'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${
+                            riskCase.alertLevel === 'RED'
+                              ? 'bg-rose-100 text-rose-800 border-rose-300'
+                              : 'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
+                            {riskCase.alertLevel}
+                          </span>
+                          {riskCase.mbtiType && <p className="text-xs text-gray-600 mt-2">Profile: {riskCase.mbtiType}</p>}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {Array.isArray(riskCase.riskFlags) && riskCase.riskFlags.length > 0 ? riskCase.riskFlags.join(', ') : 'Behavioural escalation detected'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">{riskCase.recommendedOutreach}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {riskCase.lastRiskAt ? new Date(riskCase.lastRiskAt).toLocaleString() : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Footer Info */}
@@ -563,7 +754,46 @@ const AdminDashboard = () => {
         {/* User Details & Test Results Section */}
         {userStats && userStats.users && (
           <div className="bg-white rounded-lg shadow mb-12 p-8">
-            <h2 className="text-2xl font-bold mb-6 text-blue-700">All Users & Test Results</h2>
+            <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-blue-700">All Users & Test Results</h2>
+                <p className="text-sm text-gray-500 mt-1">Filter by search, test status, and risk profile. Export the filtered set to Excel.</p>
+              </div>
+              <button
+                onClick={handleExportUserResults}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-700 transition"
+              >
+                Download XLSX
+              </button>
+            </div>
+            <div className="grid gap-3 mb-6 lg:grid-cols-4">
+              <input
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="Search name, email, phone, roll number, institution"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 lg:col-span-2"
+              />
+              <select
+                value={userTestFilter}
+                onChange={(event) => setUserTestFilter(event.target.value)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="ALL">All Users</option>
+                <option value="WITH_TESTS">With Tests</option>
+                <option value="NO_TESTS">No Tests</option>
+              </select>
+              <select
+                value={userRiskFilter}
+                onChange={(event) => setUserRiskFilter(event.target.value)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="ALL">All Risk Levels</option>
+                <option value="FLAGGED">Flagged Only</option>
+                <option value="RED">Red Only</option>
+                <option value="AMBER">Amber Only</option>
+                <option value="GREEN">Green Only</option>
+              </select>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b-2 border-gray-200">
@@ -571,17 +801,31 @@ const AdminDashboard = () => {
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Name</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Email</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Phone</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Age</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Roll #</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Institution</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Risk</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tests</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {userStats.users.map(user => (
+                  {filteredUsers.map(user => (
                     <tr key={user.id} className="hover:bg-gray-50 transition">
                       <td className="px-4 py-3 font-semibold text-gray-900">{user.name}</td>
                       <td className="px-4 py-3 text-sm text-blue-700">{user.email}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{user.phone || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{user.age || '—'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{user.rollNumber || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{user.institution || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {user.tests.some((test) => test.alertLevel === 'RED') ? (
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold border bg-rose-100 text-rose-800 border-rose-300">RED</span>
+                        ) : user.tests.some((test) => test.alertLevel === 'AMBER') ? (
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold border bg-amber-100 text-amber-800 border-amber-300">AMBER</span>
+                        ) : (
+                          <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold border bg-emerald-100 text-emerald-800 border-emerald-300">GREEN</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {user.tests.length === 0 ? (
                           <span className="text-gray-400 text-xs">No tests</span>
@@ -591,8 +835,10 @@ const AdminDashboard = () => {
                               <tr>
                                 <th className="px-2 py-1 text-xs text-gray-600">Session</th>
                                 <th className="px-2 py-1 text-xs text-gray-600">MBTI</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">Age</th>
                                 <th className="px-2 py-1 text-xs text-gray-600">Progress</th>
                                 <th className="px-2 py-1 text-xs text-gray-600">State</th>
+                                <th className="px-2 py-1 text-xs text-gray-600">Risk</th>
                                 <th className="px-2 py-1 text-xs text-gray-600">Started</th>
                                 <th className="px-2 py-1 text-xs text-gray-600">Updated</th>
                                 <th className="px-2 py-1 text-xs text-gray-600">Answers</th>
@@ -603,8 +849,10 @@ const AdminDashboard = () => {
                                 <tr key={test.sessionId} className="border-t">
                                   <td className="px-2 py-1 text-xs font-mono bg-gray-50">{test.sessionId}</td>
                                   <td className="px-2 py-1 text-xs font-bold text-purple-700">{test.mbtiType || '—'}</td>
+                                  <td className="px-2 py-1 text-xs">{test.age || '—'}</td>
                                   <td className="px-2 py-1 text-xs">{test.progress || '—'}</td>
                                   <td className="px-2 py-1 text-xs">{test.state}</td>
+                                  <td className="px-2 py-1 text-xs font-semibold">{test.alertLevel || 'GREEN'}</td>
                                   <td className="px-2 py-1 text-xs">{test.createdAt ? new Date(test.createdAt).toLocaleString() : '—'}</td>
                                   <td className="px-2 py-1 text-xs">{test.updatedAt ? new Date(test.updatedAt).toLocaleString() : '—'}</td>
                                   <td className="px-2 py-1 text-xs">
@@ -625,6 +873,9 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
+            {filteredUsers.length === 0 && (
+              <div className="pt-6 text-sm text-gray-500">No users matched the current filters.</div>
+            )}
           </div>
         )}
       </div>

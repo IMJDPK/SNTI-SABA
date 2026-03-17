@@ -69,6 +69,99 @@ function getAuthUserFromRequest(req) {
     }
 }
 
+async function readPersistedSessions() {
+    const sessionsDir = path.join(__dirname, 'data', 'sessions');
+    try {
+        const files = await fs.readdir(sessionsDir);
+        const jsonFiles = files.filter((file) => file.endsWith('.json'));
+        const reads = await Promise.allSettled(
+            jsonFiles.map((file) => fs.readFile(path.join(sessionsDir, file), 'utf8'))
+        );
+
+        return reads
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => {
+                try {
+                    return JSON.parse(result.value);
+                } catch {
+                    return null;
+                }
+            })
+            .filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+function mergeSessions(liveSessions = [], persistedSessions = []) {
+    const sessionMap = new Map();
+    persistedSessions.forEach((session) => { if (session?.id) sessionMap.set(session.id, session); });
+    liveSessions.forEach((session) => { if (session?.id) sessionMap.set(session.id, session); });
+    return Array.from(sessionMap.values());
+}
+
+async function readPayments() {
+    const paymentsFile = path.join(__dirname, 'data', 'payments.json');
+    try {
+        const raw = await fs.readFile(paymentsFile, 'utf8');
+        return JSON.parse(raw);
+    } catch {
+        return [];
+    }
+}
+
+function getPaymentStatus(payments = [], email, phone) {
+    if (!email && !phone) return 'NONE';
+
+    const matches = payments.filter((payment) => (
+        (email && payment.email && payment.email.toLowerCase() === email.toLowerCase()) ||
+        (phone && payment.mobile && payment.mobile === phone)
+    ));
+
+    if (matches.some((payment) => payment.status === 'VERIFIED')) return 'VERIFIED';
+    if (matches.some((payment) => payment.status === 'PENDING')) return 'PENDING';
+    if (matches.some((payment) => payment.status === 'REJECTED')) return 'REJECTED';
+    return 'NONE';
+}
+
+function normalizeAdminSession(session, payments = []) {
+    const userInfo = session.userInfo || {};
+    const paymentStatus = getPaymentStatus(payments, userInfo.email || session.email || null, userInfo.phone || session.phone || null);
+    const totalQuestions = session.totalQuestions || 20;
+    const progress = session.state === 'TEST_IN_PROGRESS' && Array.isArray(session.answers)
+        ? `${Math.min(session.answers.length, totalQuestions)}/${totalQuestions}`
+        : (session.state === 'TEST_COMPLETE' ? `${totalQuestions}/${totalQuestions}` : null);
+
+    return {
+        id: session.id,
+        identifier: session.identifier || session.ipAddress,
+        name: session.name || userInfo.name || null,
+        email: userInfo.email || session.email || null,
+        phone: userInfo.phone || session.phone || null,
+        age: userInfo.age || session.age || null,
+        rollNumber: userInfo.rollNumber || session.rollNumber || null,
+        institution: userInfo.institution || session.institution || null,
+        state: session.state,
+        mbtiType: session.mbtiType || null,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt || session.createdAt,
+        paymentStatus,
+        progress,
+        assessmentVariant: session.assessmentVariant || 'classic',
+        language: session.language || 'english',
+        alertLevel: session.alertLevel || 'GREEN',
+        requiresHumanIntervention: Boolean(session.requiresHumanIntervention),
+        riskFlags: Array.isArray(session.riskFlags) ? session.riskFlags : [],
+        lastRiskAt: session.lastRiskAt || null,
+        recommendedOutreach: (session.alertLevel === 'RED' || session.requiresHumanIntervention)
+            ? 'Immediate phone outreach and safeguarding review'
+            : (session.alertLevel === 'AMBER'
+                ? 'Counsellor phone follow-up within 24 hours'
+                : 'Monitor during normal review cycle'),
+        answers: Array.isArray(session.answers) ? session.answers : [],
+    };
+}
+
 async function verifyGoogleIdToken(idToken) {
     const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
     if (!response.ok) {
@@ -814,87 +907,10 @@ app.get('/api/admin/payments', requireAdmin, async (req, res) => {
 app.get('/api/admin/sessions', requireAdmin, async (req, res) => {
     try {
         const { scope = 'ALL', payment = 'ALL', personality = 'ALL' } = req.query;
-
-        // 1) In-memory sessions
         const liveSessions = getAllSessions();
-
-        // 2) Persisted sessions from filesystem
-        const sessionsDir = path.join(__dirname, 'data', 'sessions');
-        let fileSessions = [];
-        try {
-            const files = await fs.readdir(sessionsDir);
-            const jsonFiles = files.filter(f => f.endsWith('.json'));
-            const reads = await Promise.allSettled(
-                jsonFiles.map(f => fs.readFile(path.join(sessionsDir, f), 'utf8'))
-            );
-            fileSessions = reads
-                .filter(r => r.status === 'fulfilled')
-                .map(r => {
-                    try { return JSON.parse(r.value); } catch { return null; }
-                })
-                .filter(Boolean);
-        } catch (err) {
-            // No persisted sessions yet - that's fine
-            fileSessions = [];
-        }
-
-        // 3) Merge by session id (prefer in-memory for freshest data)
-        const sessionMap = new Map();
-        fileSessions.forEach(s => { if (s && s.id) sessionMap.set(s.id, s); });
-        liveSessions.forEach(s => { if (s && s.id) sessionMap.set(s.id, s); });
-        let sessions = Array.from(sessionMap.values());
-
-        // 4) Attach payment status by matching email+phone
-        const paymentsFile = path.join(__dirname, 'data', 'payments.json');
-        let payments = [];
-        try {
-            const pData = await fs.readFile(paymentsFile, 'utf8');
-            payments = JSON.parse(pData);
-        } catch {}
-
-        const findPaymentStatus = (email, phone) => {
-            if (!email && !phone) return 'NONE';
-            const userPays = payments.filter(p => (
-                (email && p.email && p.email.toLowerCase() === email.toLowerCase()) ||
-                (phone && p.mobile && p.mobile === phone)
-            ));
-            if (userPays.some(p => p.status === 'VERIFIED')) return 'VERIFIED';
-            if (userPays.some(p => p.status === 'PENDING')) return 'PENDING';
-            if (userPays.some(p => p.status === 'REJECTED')) return 'REJECTED';
-            return 'NONE';
-        };
-
-        // 5) Normalize and enrich
-        sessions = sessions.map(s => {
-            const ui = s.userInfo || {};
-            const paymentStatus = findPaymentStatus(ui.email, ui.phone);
-            const totalQ = s.totalQuestions || 20; // Use dynamic total from session
-            const progress = s.state === 'TEST_IN_PROGRESS' && Array.isArray(s.answers)
-                ? `${Math.min(s.answers.length, totalQ)}/${totalQ}`
-                : (s.state === 'TEST_COMPLETE' ? `${totalQ}/${totalQ}` : null);
-            return {
-                id: s.id,
-                identifier: s.identifier || s.ipAddress,
-                name: s.name || ui.name || null,
-                email: ui.email || null,
-                phone: ui.phone || null,
-                age: ui.age || null,
-                rollNumber: ui.rollNumber || null,
-                institution: ui.institution || null,
-                state: s.state,
-                mbtiType: s.mbtiType || null,
-                createdAt: s.createdAt,
-                updatedAt: s.updatedAt || s.createdAt,
-                paymentStatus,
-                progress,
-                assessmentVariant: s.assessmentVariant || 'classic',
-                language: s.language || 'english',
-                alertLevel: s.alertLevel || 'GREEN',
-                requiresHumanIntervention: Boolean(s.requiresHumanIntervention),
-                riskFlags: Array.isArray(s.riskFlags) ? s.riskFlags : [],
-                lastRiskAt: s.lastRiskAt || null
-            };
-        });
+        const fileSessions = await readPersistedSessions();
+        const payments = await readPayments();
+        let sessions = mergeSessions(liveSessions, fileSessions).map((session) => normalizeAdminSession(session, payments));
 
         // 6) Scope filtering
         if (scope === 'ACTIVE') sessions = sessions.filter(s => s.state !== 'TEST_COMPLETE');
@@ -1009,7 +1025,8 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
     try {
         const users = await getAllUsers();
         const metrics = await getMetrics();
-        const sessions = getAllSessions();
+        const sessions = mergeSessions(getAllSessions(), await readPersistedSessions());
+        const payments = await readPayments();
         const activeTests = sessions.filter(s => s.state !== 'TEST_COMPLETE').length;
         const completedSessions = sessions.filter(s => s.state === 'TEST_COMPLETE');
         const personalityDistribution = completedSessions.reduce((acc, s) => {
@@ -1017,10 +1034,12 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
             return acc;
         }, {});
 
-        // Map sessions to users by email (and phone)
+        const normalizedSessions = sessions.map((session) => normalizeAdminSession(session, payments));
+
+        // Map sessions to users by email
         const userTestsMap = {};
-        sessions.forEach(session => {
-            const email = session.userInfo?.email || session.email || null;
+        normalizedSessions.forEach(session => {
+            const email = session.email || null;
             if (!email) return;
             if (!userTestsMap[email]) userTestsMap[email] = [];
             userTestsMap[email].push({
@@ -1033,13 +1052,20 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
                 progress: session.progress || null,
                 assessmentVariant: session.assessmentVariant || 'classic',
                 language: session.language || 'english',
-                rollNumber: session.userInfo?.rollNumber || session.rollNumber || null,
-                institution: session.userInfo?.institution || session.institution || null,
+                rollNumber: session.rollNumber || null,
+                institution: session.institution || null,
+                age: session.age || null,
                 alertLevel: session.alertLevel || 'GREEN',
                 requiresHumanIntervention: Boolean(session.requiresHumanIntervention),
-                riskFlags: Array.isArray(session.riskFlags) ? session.riskFlags : []
+                riskFlags: Array.isArray(session.riskFlags) ? session.riskFlags : [],
+                lastRiskAt: session.lastRiskAt || null,
+                recommendedOutreach: session.recommendedOutreach,
             });
         });
+
+        const riskCases = normalizedSessions
+            .filter((session) => session.alertLevel === 'RED' || session.requiresHumanIntervention)
+            .sort((left, right) => new Date(right.lastRiskAt || right.updatedAt || 0) - new Date(left.lastRiskAt || left.updatedAt || 0));
 
         res.json({
             success: true,
@@ -1047,15 +1073,19 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
                 totalUsers: metrics.totalUsers || users.length,
                 totalTestsStarted: metrics.totalTestsStarted || 0,
                 totalTestsCompleted: metrics.totalTestsCompleted || 0,
-                activeTests
+                activeTests,
+                urgentRiskCases: riskCases.length,
             },
             personalityDistribution,
+            riskCases,
             users: users.map(u => ({
                 id: u.id,
                 name: u.name,
                 email: u.email,
                 phone: u.phone || null,
                 rollNumber: u.rollNumber || null,
+                institution: u.institution || null,
+                age: [...(userTestsMap[u.email] || [])].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))[0]?.age || null,
                 createdAt: u.createdAt,
                 lastLoginAt: u.lastLoginAt,
                 tests: userTestsMap[u.email] || []
