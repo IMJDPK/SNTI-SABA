@@ -10,7 +10,7 @@ import { getEmpatheticResponse, TOPIC_TREES, MBTI_TEMPLATES } from './ai_handler
 import { generateConversationalResponse, generateTypeAwareGuidanceResponse, evaluateBehaviorRisk, handleSNTITestConversation } from './gemini_simple.js';
 import { getAllSessions, getOrCreateSession, updateSession } from './session_manager.js';
 import dotenv from 'dotenv';
-import { createUser, verifyUser, getAllUsers, upsertGoogleUser, saveUserAssessmentResult, getLatestAssessmentByEmail } from './users_store.js';
+import { createUser, verifyUser, getAllUsers, upsertGoogleUser, saveUserAssessmentResult, getLatestAssessmentByEmail, findUserByEmail, updateUserProfile } from './users_store.js';
 import { getMetrics, incrementCounter, setTotalUsers } from './metrics_store.js';
 import { generateJwt, requireAdmin, requireAuth, verifyJwt } from './auth_middleware.js';
 
@@ -200,7 +200,45 @@ app.get('/api/assessment/latest', requireAuth, async (req, res) => {
 });
 
 app.get('/api/auth/me', requireAuth, async (req, res) => {
-    return res.json({ success: true, user: { id: req.user.sub, email: req.user.email, name: req.user.name } });
+    try {
+        const user = await findUserByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        return res.json({
+            success: true,
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                phone: user.phone || null,
+                rollNumber: user.rollNumber || null,
+                institution: user.institution || null,
+                avatar: user.avatar || null,
+                authProvider: user.authProvider || 'local',
+                createdAt: user.createdAt,
+                lastLoginAt: user.lastLoginAt || null,
+            }
+        });
+    } catch {
+        return res.status(500).json({ success: false, error: 'Failed to load user profile' });
+    }
+});
+
+app.patch('/api/auth/profile', requireAuth, async (req, res) => {
+    try {
+        const { phone, rollNumber, institution } = req.body || {};
+        const updatedUser = await updateUserProfile(req.user.email, {
+            phone,
+            rollNumber,
+            institution,
+        });
+
+        return res.json({ success: true, user: updatedUser });
+    } catch (err) {
+        return res.status(400).json({ success: false, error: err.message || 'Failed to update profile' });
+    }
 });
 
 app.post('/api/auth/logout', requireAuth, async (req, res) => {

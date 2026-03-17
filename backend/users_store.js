@@ -27,6 +27,23 @@ export async function findUserByEmail(email) {
   return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
 }
 
+function sanitizeUser(user) {
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone || null,
+    rollNumber: user.rollNumber || null,
+    institution: user.institution || null,
+    avatar: user.avatar || null,
+    authProvider: user.authProvider || 'local',
+    createdAt: user.createdAt,
+    lastLoginAt: user.lastLoginAt || null,
+  };
+}
+
 export async function createUser({ name, email, password, phone, rollNumber }) {
   await ensureDataFiles();
   const users = await getAllUsers();
@@ -41,6 +58,7 @@ export async function createUser({ name, email, password, phone, rollNumber }) {
     email: email.trim().toLowerCase(),
     phone: phone ? phone.trim() : null,
     rollNumber: rollNumber ? rollNumber.trim() : null,
+    institution: null,
     authProvider: 'local',
     googleId: null,
     avatar: null,
@@ -51,7 +69,7 @@ export async function createUser({ name, email, password, phone, rollNumber }) {
   };
   users.push(user);
   await fs.writeFile(usersFile, JSON.stringify(users, null, 2));
-  return { id: user.id, name: user.name, email: user.email, phone: user.phone, rollNumber: user.rollNumber, createdAt: user.createdAt };
+  return sanitizeUser(user);
 }
 
 export async function upsertGoogleUser({ googleId, email, name, avatar }) {
@@ -67,6 +85,7 @@ export async function upsertGoogleUser({ googleId, email, name, avatar }) {
       email: normalizedEmail,
       phone: null,
       rollNumber: null,
+      institution: null,
       authProvider: 'google',
       googleId: googleId || null,
       avatar: avatar || null,
@@ -90,15 +109,31 @@ export async function upsertGoogleUser({ googleId, email, name, avatar }) {
   if (idx !== -1) users[idx] = user;
   await fs.writeFile(usersFile, JSON.stringify(users, null, 2));
 
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatar: user.avatar,
-    authProvider: user.authProvider,
-    createdAt: user.createdAt,
-    lastLoginAt: user.lastLoginAt,
+  return sanitizeUser(user);
+}
+
+export async function updateUserProfile(email, profile = {}) {
+  if (!email) throw new Error('Email is required to update profile');
+
+  const users = await getAllUsers();
+  const normalizedEmail = email.trim().toLowerCase();
+  const idx = users.findIndex((u) => u.email.toLowerCase() === normalizedEmail);
+  if (idx === -1) throw new Error('User not found');
+
+  const nextPhone = typeof profile.phone === 'string' ? profile.phone.trim() : users[idx].phone;
+  const nextRollNumber = typeof profile.rollNumber === 'string' ? profile.rollNumber.trim() : users[idx].rollNumber;
+  const nextInstitution = typeof profile.institution === 'string' ? profile.institution.trim() : users[idx].institution;
+
+  users[idx] = {
+    ...users[idx],
+    phone: nextPhone || null,
+    rollNumber: nextRollNumber || null,
+    institution: nextInstitution || null,
+    updatedAt: new Date().toISOString(),
   };
+
+  await fs.writeFile(usersFile, JSON.stringify(users, null, 2));
+  return sanitizeUser(users[idx]);
 }
 
 export async function saveUserAssessmentResult(email, assessment) {
@@ -157,5 +192,5 @@ export async function verifyUser(email, password) {
     users[idx] = user;
     await fs.writeFile(usersFile, JSON.stringify(users, null, 2));
   }
-  return { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt };
+  return sanitizeUser(user);
 }

@@ -9,6 +9,14 @@ const Dashboard = () => {
   const [testHistory, setTestHistory] = useState([]);
   const [latestAssessment, setLatestAssessment] = useState(null);
   const [assessmentError, setAssessmentError] = useState('');
+  const [profileForm, setProfileForm] = useState({
+    phone: '',
+    rollNumber: '',
+    institution: '',
+  });
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,14 +28,22 @@ const Dashboard = () => {
       return;
     }
 
+    let parsedUser;
     try {
-      setUser(JSON.parse(userData));
+      parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
     } catch {
       localStorage.removeItem('snti_user');
       localStorage.removeItem('userToken');
       navigate('/login', { replace: true });
       return;
     }
+
+    setProfileForm({
+      phone: parsedUser.phone || '',
+      rollNumber: parsedUser.rollNumber || '',
+      institution: parsedUser.institution || '',
+    });
 
     const loadTestHistory = () => {
       const sessions = JSON.parse(localStorage.getItem('snti_test_sessions') || '[]');
@@ -36,16 +52,40 @@ const Dashboard = () => {
 
     loadTestHistory();
     try {
-      const response = await fetch(`${API_URL}/api/assessment/latest`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setLatestAssessment(data.assessment || null);
+      const [profileResponse, assessmentResponse] = await Promise.all([
+        fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        fetch(`${API_URL}/api/assessment/latest`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      ]);
+
+      const profileData = await profileResponse.json();
+      if (profileResponse.ok && profileData.success) {
+        setUser(profileData.user);
+        setProfileForm({
+          phone: profileData.user.phone || '',
+          rollNumber: profileData.user.rollNumber || '',
+          institution: profileData.user.institution || '',
+        });
+        localStorage.setItem('snti_user', JSON.stringify({
+          ...parsedUser,
+          ...profileData.user,
+          provider: parsedUser.provider || profileData.user.authProvider,
+        }));
+        window.dispatchEvent(new Event('storage'));
+      }
+
+      const assessmentData = await assessmentResponse.json();
+      if (assessmentResponse.ok && assessmentData.success) {
+        setLatestAssessment(assessmentData.assessment || null);
       } else {
-        setAssessmentError(data.error || 'Could not load your saved progress.');
+        setAssessmentError(assessmentData.error || 'Could not load your saved progress.');
       }
     } catch {
       setAssessmentError('Could not load your saved progress.');
@@ -61,6 +101,66 @@ const Dashboard = () => {
     localStorage.removeItem('userToken');
     localStorage.removeItem('snti_user');
     navigate('/');
+  };
+
+  const handleProfileFieldChange = (event) => {
+    const { name, value } = event.target;
+    setProfileForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+    setProfileMessage('');
+    setProfileError('');
+  };
+
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    setSavingProfile(true);
+    setProfileMessage('');
+    setProfileError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileForm),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setProfileError(data.error || 'Failed to update profile.');
+        return;
+      }
+
+      const nextUser = {
+        ...user,
+        ...data.user,
+        provider: user?.provider || data.user.authProvider,
+      };
+
+      setUser(nextUser);
+      setProfileForm({
+        phone: data.user.phone || '',
+        rollNumber: data.user.rollNumber || '',
+        institution: data.user.institution || '',
+      });
+      localStorage.setItem('snti_user', JSON.stringify(nextUser));
+      window.dispatchEvent(new Event('storage'));
+      setProfileMessage('Your account details have been updated.');
+    } catch {
+      setProfileError('Failed to update profile.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const getPersonalityColor = (type) => {
@@ -166,24 +266,84 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           <div className="card">
             <h2 className="text-2xl font-bold text-primary-dark mb-4">Account Details</h2>
-            <div className="space-y-3 text-sm text-gray-700">
-              <div className="flex justify-between gap-4 border-b border-gray-100 pb-3">
-                <span className="font-medium text-gray-500">Name</span>
-                <span>{user?.name || 'Not provided'}</span>
+            <form className="space-y-4" onSubmit={handleProfileSave}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Name</label>
+                  <input
+                    value={user?.name || ''}
+                    disabled
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                  <input
+                    value={user?.email || ''}
+                    disabled
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                  />
+                </div>
               </div>
-              <div className="flex justify-between gap-4 border-b border-gray-100 pb-3">
-                <span className="font-medium text-gray-500">Email</span>
-                <span>{user?.email || 'Not provided'}</span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-500 mb-1">Phone Number</label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    value={profileForm.phone}
+                    onChange={handleProfileFieldChange}
+                    placeholder="03XXXXXXXXX"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="rollNumber" className="block text-sm font-medium text-gray-500 mb-1">Roll Number</label>
+                  <input
+                    id="rollNumber"
+                    name="rollNumber"
+                    value={profileForm.rollNumber}
+                    onChange={handleProfileFieldChange}
+                    placeholder="Enter your roll number"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
               </div>
-              <div className="flex justify-between gap-4 border-b border-gray-100 pb-3">
+
+              <div>
+                <label htmlFor="institution" className="block text-sm font-medium text-gray-500 mb-1">School / Institution</label>
+                <input
+                  id="institution"
+                  name="institution"
+                  value={profileForm.institution}
+                  onChange={handleProfileFieldChange}
+                  placeholder="Enter your school or institution"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div className="flex justify-between gap-4 border-t border-gray-100 pt-4 text-sm text-gray-700">
                 <span className="font-medium text-gray-500">Sign-in Method</span>
                 <span className="capitalize">{user?.provider || user?.authProvider || 'email'}</span>
               </div>
-              <div className="flex justify-between gap-4">
+
+              <div className="flex justify-between gap-4 text-sm text-gray-700">
                 <span className="font-medium text-gray-500">Saved Assessments</span>
                 <span>{completedCount}</span>
               </div>
-            </div>
+
+              {profileMessage && <p className="text-sm text-emerald-600">{profileMessage}</p>}
+              {profileError && <p className="text-sm text-rose-600">{profileError}</p>}
+
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="btn btn-primary inline-flex"
+              >
+                {savingProfile ? 'Saving...' : 'Save Account Details'}
+              </button>
+            </form>
           </div>
 
           <div className="card">
