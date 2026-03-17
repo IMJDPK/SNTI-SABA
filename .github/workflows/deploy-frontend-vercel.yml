@@ -6,6 +6,7 @@ on:
     paths:
       - 'frontend/**'
       - 'vercel.json'
+      - '.github/workflows/deploy-frontend-vercel.yml'
   workflow_dispatch:
 
 jobs:
