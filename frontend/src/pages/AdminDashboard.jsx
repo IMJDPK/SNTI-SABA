@@ -14,6 +14,9 @@ const AdminDashboard = () => {
   const [userTestFilter, setUserTestFilter] = useState('ALL');
   const [userRiskFilter, setUserRiskFilter] = useState('ALL');
   const [riskLevelFilter, setRiskLevelFilter] = useState('ALL');
+  const [riskStatusFilter, setRiskStatusFilter] = useState('ALL');
+  const [riskCaseDrafts, setRiskCaseDrafts] = useState({});
+  const [savingRiskCaseId, setSavingRiskCaseId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userStats, setUserStats] = useState(null);
   const [adminEmail, setAdminEmail] = useState('');
@@ -64,11 +67,63 @@ const AdminDashboard = () => {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
       });
       const data = await resp.json();
-      if (data.success) setUserStats(data);
+      if (data.success) {
+        setUserStats(data);
+        const nextDrafts = {};
+        (data.riskCases || []).forEach((riskCase) => {
+          nextDrafts[riskCase.id] = {
+            caseStatus: riskCase.caseStatus || 'NEW',
+            adminNotes: riskCase.adminNotes || '',
+          };
+        });
+        setRiskCaseDrafts(nextDrafts);
+      }
     } catch (e) {
       console.error('Failed to fetch user stats', e);
     }
   }
+
+  const handleRiskDraftChange = (sessionId, field, value) => {
+    setRiskCaseDrafts((current) => ({
+      ...current,
+      [sessionId]: {
+        caseStatus: current[sessionId]?.caseStatus || 'NEW',
+        adminNotes: current[sessionId]?.adminNotes || '',
+        [field]: value,
+      },
+    }));
+  };
+
+  const saveRiskCase = async (riskCase) => {
+    const draft = riskCaseDrafts[riskCase.id] || {
+      caseStatus: riskCase.caseStatus || 'NEW',
+      adminNotes: riskCase.adminNotes || '',
+    };
+
+    try {
+      setSavingRiskCaseId(riskCase.id);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_URL}/api/admin/risk-cases/${riskCase.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify(draft),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        alert(data.error || 'Failed to update risk case');
+        return;
+      }
+      await fetchUserStats();
+    } catch (error) {
+      console.error('Failed to save risk case', error);
+      alert('Failed to save risk case');
+    } finally {
+      setSavingRiskCaseId(null);
+    }
+  };
 
   const handleApprove = async (paymentId) => {
     if (!confirm('Are you sure you want to approve this payment?')) return;
@@ -191,10 +246,15 @@ const AdminDashboard = () => {
 
   const filteredRiskCases = useMemo(() => {
     const source = userStats?.riskCases || [];
-    if (riskLevelFilter === 'ALL') return source;
-    if (riskLevelFilter === 'FLAGGED') return source.filter((item) => item.alertLevel !== 'GREEN' || item.requiresHumanIntervention);
-    return source.filter((item) => item.alertLevel === riskLevelFilter);
-  }, [riskLevelFilter, userStats]);
+    return source.filter((item) => {
+      const levelMatch = riskLevelFilter === 'ALL'
+        || (riskLevelFilter === 'FLAGGED' && (item.alertLevel !== 'GREEN' || item.requiresHumanIntervention))
+        || item.alertLevel === riskLevelFilter;
+
+      const statusMatch = riskStatusFilter === 'ALL' || (item.caseStatus || 'NEW') === riskStatusFilter;
+      return levelMatch && statusMatch;
+    });
+  }, [riskLevelFilter, riskStatusFilter, userStats]);
 
   const filteredUsers = useMemo(() => {
     const source = userStats?.users || [];
@@ -511,6 +571,19 @@ const AdminDashboard = () => {
                   {level}
                 </button>
               ))}
+              <span className="mx-2 h-6 w-px bg-gray-300" />
+              <span className="text-sm font-semibold text-gray-700">Case Status:</span>
+              {['ALL', 'NEW', 'CONTACTED', 'ESCALATED', 'CLOSED'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setRiskStatusFilter(status)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
+                    riskStatusFilter === status ? 'bg-indigo-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -705,6 +778,8 @@ const AdminDashboard = () => {
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Risk Level</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Triggers</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Recommended Action</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Case Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Internal Notes</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Last Alert</th>
                     </tr>
                   </thead>
@@ -732,6 +807,34 @@ const AdminDashboard = () => {
                           {Array.isArray(riskCase.riskFlags) && riskCase.riskFlags.length > 0 ? riskCase.riskFlags.join(', ') : 'Behavioural escalation detected'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">{riskCase.recommendedOutreach}</td>
+                        <td className="px-6 py-4">
+                          <select
+                            value={riskCaseDrafts[riskCase.id]?.caseStatus || riskCase.caseStatus || 'NEW'}
+                            onChange={(event) => handleRiskDraftChange(riskCase.id, 'caseStatus', event.target.value)}
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                          >
+                            <option value="NEW">NEW</option>
+                            <option value="CONTACTED">CONTACTED</option>
+                            <option value="ESCALATED">ESCALATED</option>
+                            <option value="CLOSED">CLOSED</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          <textarea
+                            value={riskCaseDrafts[riskCase.id]?.adminNotes || ''}
+                            onChange={(event) => handleRiskDraftChange(riskCase.id, 'adminNotes', event.target.value)}
+                            placeholder="Internal-only notes for outreach and follow-up"
+                            className="w-64 rounded-lg border border-gray-300 px-3 py-2 text-xs text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                            rows={3}
+                          />
+                          <button
+                            onClick={() => saveRiskCase(riskCase)}
+                            disabled={savingRiskCaseId === riskCase.id}
+                            className="mt-2 inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {savingRiskCaseId === riskCase.id ? 'Saving...' : 'Save Case'}
+                          </button>
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {riskCase.lastRiskAt ? new Date(riskCase.lastRiskAt).toLocaleString() : '—'}
                         </td>

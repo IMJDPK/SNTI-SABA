@@ -162,6 +162,121 @@ function normalizeAdminSession(session, payments = []) {
     };
 }
 
+const RISK_CASE_STATUS = ['NEW', 'CONTACTED', 'ESCALATED', 'CLOSED'];
+const riskCasesFile = path.join(__dirname, 'data', 'risk_cases.json');
+const riskAlertLogFile = path.join(__dirname, 'data', 'risk_alerts.log');
+
+async function readRiskCases() {
+    try {
+        const raw = await fs.readFile(riskCasesFile, 'utf8');
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+async function writeRiskCases(riskCases) {
+    await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
+    await fs.writeFile(riskCasesFile, JSON.stringify(riskCases, null, 2));
+}
+
+async function appendRiskAlertLog(entry) {
+    await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
+    await fs.appendFile(riskAlertLogFile, `${JSON.stringify(entry)}\n`);
+}
+
+function buildRiskCaseFromSession(session) {
+    return {
+        sessionId: session.id,
+        name: session.name || null,
+        email: session.email || null,
+        phone: session.phone || null,
+        age: session.age || null,
+        rollNumber: session.rollNumber || null,
+        institution: session.institution || null,
+        mbtiType: session.mbtiType || null,
+        alertLevel: session.alertLevel || 'GREEN',
+        requiresHumanIntervention: Boolean(session.requiresHumanIntervention),
+        riskFlags: Array.isArray(session.riskFlags) ? session.riskFlags : [],
+        lastRiskAt: session.lastRiskAt || session.updatedAt || null,
+        recommendedOutreach: session.recommendedOutreach || 'Counsellor review required',
+    };
+}
+
+async function sendRiskAlert(riskCase) {
+    const payload = {
+        type: 'RED_RISK_CASE',
+        timestamp: new Date().toISOString(),
+        riskCase,
+    };
+
+    const webhookUrl = process.env.RISK_ALERT_WEBHOOK_URL;
+    if (webhookUrl) {
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        } catch (error) {
+            console.error('Failed to send risk webhook alert:', error.message);
+        }
+    }
+
+    await appendRiskAlertLog(payload);
+}
+
+async function upsertRiskCaseFromSession(session, options = {}) {
+    if (!session || !session.id) return null;
+    if (!session.requiresHumanIntervention && session.alertLevel === 'GREEN') return null;
+
+    const riskCases = await readRiskCases();
+    const now = new Date().toISOString();
+    const nextCase = buildRiskCaseFromSession(session);
+    const existingIndex = riskCases.findIndex((item) => item.sessionId === session.id);
+
+    if (existingIndex === -1) {
+        const newRiskCase = {
+            ...nextCase,
+            caseStatus: 'NEW',
+            adminNotes: '',
+            createdAt: now,
+            updatedAt: now,
+            source: options.source || 'chat',
+            lastAlertSentAt: null,
+        };
+        riskCases.push(newRiskCase);
+
+        if (newRiskCase.alertLevel === 'RED') {
+            await sendRiskAlert(newRiskCase);
+            newRiskCase.lastAlertSentAt = now;
+        }
+
+        await writeRiskCases(riskCases);
+        return newRiskCase;
+    }
+
+    const existing = riskCases[existingIndex];
+    const updated = {
+        ...existing,
+        ...nextCase,
+        updatedAt: now,
+    };
+
+    const shouldNotifyRed = updated.alertLevel === 'RED'
+        && (!existing.lastAlertSentAt || new Date(updated.lastRiskAt || now) > new Date(existing.lastAlertSentAt));
+
+    if (shouldNotifyRed) {
+        await sendRiskAlert(updated);
+        updated.lastAlertSentAt = now;
+    }
+
+    riskCases[existingIndex] = updated;
+    await writeRiskCases(riskCases);
+    return updated;
+}
+
 async function verifyGoogleIdToken(idToken) {
     const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
     if (!response.ok) {
@@ -563,7 +678,7 @@ app.post('/api/psychology-chat', async (req, res) => {
             const riskSignal = evaluateBehaviorRisk(message);
             const effectiveName = authUser?.name || userInfo?.name || 'Student';
 
-            updateSession(sessionIdentifier, {
+            const updatedSession = updateSession(sessionIdentifier, {
                 name: effectiveName,
                 state: 'GENERAL_CHAT',
                 alertLevel: riskSignal.level,
@@ -571,6 +686,10 @@ app.post('/api/psychology-chat', async (req, res) => {
                 requiresHumanIntervention: riskSignal.requiresHumanIntervention,
                 ...(riskSignal.level !== 'GREEN' ? { lastRiskAt: new Date().toISOString() } : {})
             });
+
+            if (riskSignal.level !== 'GREEN') {
+                await upsertRiskCaseFromSession(normalizeAdminSession(updatedSession || session, await readPayments()), { source: 'general_chat' });
+            }
 
             const responseText = await generateConversationalResponse(message, conversationHistory);
 
@@ -627,7 +746,7 @@ app.post('/api/psychology-chat', async (req, res) => {
             const effectiveEmail = authUser?.email || userInfo?.email || 'preview@snti.local';
             if (riskSignal.level !== 'GREEN') {
                 const mergedFlags = Array.from(new Set([...(session.riskFlags || []), ...riskSignal.flags]));
-                updateSession(sessionIdentifier, {
+                const updatedSession = updateSession(sessionIdentifier, {
                     userInfo: {
                         ...(session.userInfo || {}),
                         email: effectiveEmail,
@@ -641,6 +760,8 @@ app.post('/api/psychology-chat', async (req, res) => {
                     mbtiType: latestAssessment.mbtiType,
                     state: 'POST_ASSESSMENT_CHAT'
                 });
+
+                await upsertRiskCaseFromSession(normalizeAdminSession(updatedSession || session, await readPayments()), { source: 'post_assessment_chat' });
             } else {
                 updateSession(sessionIdentifier, {
                     userInfo: {
@@ -690,6 +811,11 @@ app.post('/api/psychology-chat', async (req, res) => {
 
         // Use the SNTI TEST conversation handler with user info
         const result = await handleSNTITestConversation(message, sessionIdentifier, userInfo);
+
+        if (result.alertLevel && result.alertLevel !== 'GREEN') {
+            const session = getOrCreateSession(sessionIdentifier);
+            await upsertRiskCaseFromSession(normalizeAdminSession(session, await readPayments()), { source: 'assessment_flow' });
+        }
         
         res.json({ 
             response: result.response,
@@ -938,6 +1064,60 @@ app.get('/api/admin/sessions', requireAdmin, async (req, res) => {
     }
 });
 
+app.get('/api/admin/risk-cases', requireAdmin, async (req, res) => {
+    try {
+        const { status = 'ALL', level = 'ALL' } = req.query;
+        let riskCases = await readRiskCases();
+
+        if (status !== 'ALL') {
+            riskCases = riskCases.filter((riskCase) => riskCase.caseStatus === status);
+        }
+
+        if (level !== 'ALL') {
+            if (level === 'FLAGGED') {
+                riskCases = riskCases.filter((riskCase) => riskCase.alertLevel !== 'GREEN' || riskCase.requiresHumanIntervention);
+            } else {
+                riskCases = riskCases.filter((riskCase) => riskCase.alertLevel === level);
+            }
+        }
+
+        riskCases.sort((left, right) => new Date(right.lastRiskAt || right.updatedAt || 0) - new Date(left.lastRiskAt || left.updatedAt || 0));
+        return res.json({ success: true, riskCases, total: riskCases.length });
+    } catch (error) {
+        return res.status(500).json({ success: false, error: 'Failed to load risk cases' });
+    }
+});
+
+app.patch('/api/admin/risk-cases/:sessionId', requireAdmin, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { caseStatus, adminNotes } = req.body || {};
+
+        const riskCases = await readRiskCases();
+        const idx = riskCases.findIndex((riskCase) => riskCase.sessionId === sessionId);
+        if (idx === -1) {
+            return res.status(404).json({ success: false, error: 'Risk case not found' });
+        }
+
+        if (caseStatus && !RISK_CASE_STATUS.includes(caseStatus)) {
+            return res.status(400).json({ success: false, error: 'Invalid case status' });
+        }
+
+        const nextCase = {
+            ...riskCases[idx],
+            ...(caseStatus ? { caseStatus } : {}),
+            ...(typeof adminNotes === 'string' ? { adminNotes: adminNotes.trim() } : {}),
+            updatedAt: new Date().toISOString(),
+        };
+
+        riskCases[idx] = nextCase;
+        await writeRiskCases(riskCases);
+        return res.json({ success: true, riskCase: nextCase });
+    } catch {
+        return res.status(500).json({ success: false, error: 'Failed to update risk case' });
+    }
+});
+
 // Verify or reject payment (admin endpoint)
 app.post('/api/admin/verify-payment', requireAdmin, async (req, res) => {
     try {
@@ -1035,6 +1215,8 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
         }, {});
 
         const normalizedSessions = sessions.map((session) => normalizeAdminSession(session, payments));
+        const persistedRiskCases = await readRiskCases();
+        const riskCaseMap = new Map(persistedRiskCases.map((riskCase) => [riskCase.sessionId, riskCase]));
 
         // Map sessions to users by email
         const userTestsMap = {};
@@ -1060,11 +1242,24 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
                 riskFlags: Array.isArray(session.riskFlags) ? session.riskFlags : [],
                 lastRiskAt: session.lastRiskAt || null,
                 recommendedOutreach: session.recommendedOutreach,
+                caseStatus: riskCaseMap.get(session.id)?.caseStatus || (session.alertLevel === 'RED' || session.requiresHumanIntervention ? 'NEW' : null),
+                adminNotes: riskCaseMap.get(session.id)?.adminNotes || '',
             });
         });
 
         const riskCases = normalizedSessions
-            .filter((session) => session.alertLevel === 'RED' || session.requiresHumanIntervention)
+            .filter((session) => session.alertLevel === 'RED' || session.requiresHumanIntervention || riskCaseMap.has(session.id))
+            .map((session) => {
+                const persisted = riskCaseMap.get(session.id);
+                return {
+                    ...session,
+                    caseStatus: persisted?.caseStatus || 'NEW',
+                    adminNotes: persisted?.adminNotes || '',
+                    createdAt: persisted?.createdAt || session.createdAt,
+                    updatedAt: persisted?.updatedAt || session.updatedAt,
+                    lastAlertSentAt: persisted?.lastAlertSentAt || null,
+                };
+            })
             .sort((left, right) => new Date(right.lastRiskAt || right.updatedAt || 0) - new Date(left.lastRiskAt || left.updatedAt || 0));
 
         res.json({
