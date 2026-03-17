@@ -49,7 +49,7 @@ const PaymentModal = ({
     'ai-session': {
       title: 'Consult AI Psychologist',
       icon: '🤖',
-      description: 'Ask 4 questions to our AI psychologist powered by Gemini',
+      description: 'Ask 4 questions to our AI psychologist',
       features: [
         'Personalized guidance',
         'Based on your personality type',

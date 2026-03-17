@@ -148,26 +148,20 @@ async function getEmpatheticResponse(message, mbtiType, history = []) {
         // Create personalized response style
         const responseStyle = createPersonalizedResponse(mbtiType, topic, emotions);
 
-        // Construct prompt for Gemini API
-        const prompt = {
-            role: "system",
-            content: `You are SABA, an emotionally intelligent AI guide. 
-            The user has MBTI type ${mbtiType}. 
-            Current emotional state: ${JSON.stringify(emotions)}.
-            Use this response style: ${JSON.stringify(responseStyle)}.
-            Topic focus: ${JSON.stringify(topic)}.
-            Maintain natural, empathetic conversation while subtly weaving in life lessons.`
-        };
+        const dominantEmotion = Object.entries(emotions)
+            .reduce((a, b) => a[1] > b[1] ? a : b)[0];
 
-        // Get response from Gemini
-        const res = await axios.post("http://localhost:5000/gemini/train", {
-            content: message,
-            systemPrompt: prompt,
-            history: history
-        });
+        const opening = dominantEmotion === 'sadness'
+            ? "It sounds like you're carrying a lot right now, and I appreciate you sharing that."
+            : dominantEmotion === 'anger'
+                ? "I hear your frustration, and it's okay to feel this strongly."
+                : dominantEmotion === 'fear'
+                    ? "Thank you for being open about this. Feeling uncertain can be really heavy."
+                    : "Thanks for sharing this with me. I'm here to support you.";
 
-        return res.data?.candidates?.[0]?.content?.parts?.[0]?.text || 
-               "I'm here to listen and support you. Would you like to explore this further?";
+        const exercise = topic?.exercises?.[0] || 'a short reflective journal exercise';
+        return `${opening} Based on your ${mbtiType} style, try one practical next step: ${exercise}. ` +
+            `If you want, I can help you break it into a simple 10-minute plan.`;
 
     } catch (error) {
         console.error("Error in empathetic response:", error);

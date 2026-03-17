@@ -49,7 +49,7 @@ app.use(cors({
         if (isAllowed) {
             callback(null, true);
         } else {
-            callback(null, true); // Allow all in production for now
+            callback(new Error('Not allowed by CORS'));
         }
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -97,7 +97,8 @@ app.get('/api/health', (req, res) => {
         timestamp: Date.now(),
         hasAdminEmail: Boolean(process.env.ADMIN_EMAIL),
         hasAdminPassword: Boolean(process.env.ADMIN_PASSWORD),
-        model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+        aiProvider: process.env.OPENROUTER_API_KEY ? 'openrouter' : 'none',
+        model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
         frontendUrl: process.env.FRONTEND_URL || null
     };
     res.json({ status: 'ok', ...status });
@@ -412,7 +413,7 @@ const mbtiTypes = {
 // Add SNTI TEST psychology chat endpoint with session management
 app.post('/api/psychology-chat', async (req, res) => {
     try {
-        const { message, conversationHistory = [], userInfo, mode } = req.body;
+        const { message, conversationHistory = [], userInfo, mode, mbtiType, riskTier } = req.body;
         
         if (!message || !message.trim()) {
             return res.status(400).json({ error: 'Message is required' });
@@ -420,9 +421,46 @@ app.post('/api/psychology-chat', async (req, res) => {
 
         const authUser = getAuthUserFromRequest(req);
 
-        // Post-assessment guidance mode requires verified Google sign-in.
+        // General chat mode: direct empathetic conversation without assessment flow.
+        if (mode === 'chat') {
+            const sessionIdentifier = authUser?.email
+                ? `chat-${authUser.email.toLowerCase()}`
+                : userInfo?.email
+                    ? `chat-${String(userInfo.email).toLowerCase()}`
+                    : `chat-${req.ip || req.connection.remoteAddress || 'unknown'}`;
+            const session = getOrCreateSession(sessionIdentifier);
+            const riskSignal = evaluateBehaviorRisk(message);
+            const effectiveName = authUser?.name || userInfo?.name || 'Student';
+
+            updateSession(sessionIdentifier, {
+                name: effectiveName,
+                state: 'GENERAL_CHAT',
+                alertLevel: riskSignal.level,
+                riskFlags: Array.from(new Set([...(session.riskFlags || []), ...riskSignal.flags])),
+                requiresHumanIntervention: riskSignal.requiresHumanIntervention,
+                ...(riskSignal.level !== 'GREEN' ? { lastRiskAt: new Date().toISOString() } : {})
+            });
+
+            const responseText = await generateConversationalResponse(message, conversationHistory);
+
+            return res.json({
+                response: responseText,
+                sessionId: session.id,
+                userName: effectiveName,
+                state: 'GENERAL_CHAT',
+                mbtiType: null,
+                progress: null,
+                alertLevel: riskSignal.level,
+                requiresHumanIntervention: riskSignal.requiresHumanIntervention,
+                riskFlags: riskSignal.flags,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Post-assessment guidance mode requires verified Google sign-in in normal mode.
+        // During local testing bypass, we allow request-provided assessment context.
         if (mode === 'post_assessment') {
-            if (!authUser || authUser.provider !== 'google') {
+            if ((!authUser || authUser.provider !== 'google') && !isBypassEnabled) {
                 return res.status(401).json({
                     error: 'Google sign-in required',
                     requiresGoogleSignIn: true,
@@ -430,7 +468,18 @@ app.post('/api/psychology-chat', async (req, res) => {
                 });
             }
 
-            const latestAssessment = await getLatestAssessmentByEmail(authUser.email);
+            let latestAssessment = null;
+            if (authUser?.email) {
+                latestAssessment = await getLatestAssessmentByEmail(authUser.email);
+            }
+
+            if ((!latestAssessment || !latestAssessment.mbtiType) && isBypassEnabled && mbtiType) {
+                latestAssessment = {
+                    mbtiType,
+                    riskTier: riskTier || 'GREEN'
+                };
+            }
+
             if (!latestAssessment || !latestAssessment.mbtiType) {
                 return res.status(400).json({
                     error: 'No saved assessment found',
@@ -438,18 +487,22 @@ app.post('/api/psychology-chat', async (req, res) => {
                 });
             }
 
-            const sessionIdentifier = `google-${authUser.email.toLowerCase()}`;
+            const sessionIdentifier = authUser?.email
+                ? `google-${authUser.email.toLowerCase()}`
+                : `preview-${req.ip || req.connection.remoteAddress || 'unknown'}`;
             const session = getOrCreateSession(sessionIdentifier);
             const riskSignal = evaluateBehaviorRisk(message);
+            const effectiveName = authUser?.name || userInfo?.name || 'Student';
+            const effectiveEmail = authUser?.email || userInfo?.email || 'preview@snti.local';
             if (riskSignal.level !== 'GREEN') {
                 const mergedFlags = Array.from(new Set([...(session.riskFlags || []), ...riskSignal.flags]));
                 updateSession(sessionIdentifier, {
                     userInfo: {
                         ...(session.userInfo || {}),
-                        email: authUser.email,
-                        name: authUser.name
+                        email: effectiveEmail,
+                        name: effectiveName
                     },
-                    name: authUser.name,
+                    name: effectiveName,
                     alertLevel: riskSignal.level,
                     riskFlags: mergedFlags,
                     requiresHumanIntervention: riskSignal.requiresHumanIntervention,
@@ -461,10 +514,10 @@ app.post('/api/psychology-chat', async (req, res) => {
                 updateSession(sessionIdentifier, {
                     userInfo: {
                         ...(session.userInfo || {}),
-                        email: authUser.email,
-                        name: authUser.name
+                        email: effectiveEmail,
+                        name: effectiveName
                     },
-                    name: authUser.name,
+                    name: effectiveName,
                     mbtiType: latestAssessment.mbtiType,
                     state: 'POST_ASSESSMENT_CHAT'
                 });
@@ -473,7 +526,7 @@ app.post('/api/psychology-chat', async (req, res) => {
             const responseText = await generateTypeAwareGuidanceResponse(
                 message,
                 {
-                    name: authUser.name,
+                    name: effectiveName,
                     mbtiType: latestAssessment.mbtiType,
                     riskTier: latestAssessment.riskTier || 'GREEN'
                 },
@@ -483,7 +536,7 @@ app.post('/api/psychology-chat', async (req, res) => {
             return res.json({
                 response: responseText,
                 sessionId: session.id,
-                userName: authUser.name,
+                userName: effectiveName,
                 state: 'POST_ASSESSMENT_CHAT',
                 mbtiType: latestAssessment.mbtiType,
                 progress: null,
@@ -978,7 +1031,7 @@ app.get('/api/admin/user-stats', requireAdmin, async (req, res) => {
 // Socket.IO setup
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: process.env.FRONTEND_URL || "http://localhost:5173",
         methods: ["GET", "POST"]
     }
 });

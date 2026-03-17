@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -20,8 +19,6 @@ const __dirname = dirname(__filename);
 // Load environment variables from parent directory
 dotenv.config({ path: join(__dirname, '../.env') });
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL_NAME = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
 const OPENROUTER_URL = process.env.OPENROUTER_URL || 'https://openrouter.ai/api/v1/chat/completions';
@@ -37,11 +34,7 @@ const RISK_KEYWORDS = {
     ]
 };
 
-// Initialize Gemini only when a key is configured.
-const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
-
 async function generateAIText(prompt) {
-    // Prefer OpenRouter when configured.
     if (OPENROUTER_API_KEY) {
         const response = await fetch(OPENROUTER_URL, {
             method: 'POST',
@@ -71,14 +64,8 @@ async function generateAIText(prompt) {
         return text.trim();
     }
 
-    if (!genAI) {
-        throw new Error('No AI provider configured. Set OPENROUTER_API_KEY or GEMINI_API_KEY.');
-    }
-
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
-    const result = await model.generateContent(prompt);
-    const geminiResponse = await result.response;
-    return geminiResponse.text();
+    // Soft fallback keeps chat usable if AI provider is not configured yet.
+    return 'I can help with your SNTI profile and study wellbeing. Please ask your admin to configure OPENROUTER_API_KEY for live AI responses.';
 }
 
 export function evaluateBehaviorRisk(userMessage = '') {
@@ -178,7 +165,8 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
             
             // Generate session ID with phone last 4 digits for easy identification
             const timestamp = Date.now().toString().slice(-6);
-            const phoneDigits = userInfo.phone.slice(-4);
+            const safePhone = String(userInfo.phone || '').replace(/\D/g, '');
+            const phoneDigits = safePhone ? safePhone.slice(-4) : '0000';
             session.id = `SNTI-${timestamp}-${phoneDigits}`;
             // Skip name request state, go directly to assessment start
             session.state = 'ASSESSMENT_START';
@@ -571,6 +559,23 @@ Respond to their message with empathy and personalized guidance:`;
             response = await generateAIText(prompt);
         }
         
+        // Safety fallback: never return an empty assistant message.
+        // This also recovers sessions that ended up in NAME_REQUEST while a name already exists.
+        if (!response || !String(response).trim()) {
+            if (session.state === 'NAME_REQUEST') {
+                if (session.name) {
+                    session.state = 'TEST_INTRO';
+                    response = `Welcome back ${session.name}! Reply with "START" whenever you are ready to begin the SNTI test.`;
+                } else {
+                    response = `Hello! Welcome to SNTI TEST BY SULNAQ x IMJD. What should I call you?`;
+                }
+            } else if (session.state === 'TEST_INTRO') {
+                response = `Reply with "START" and I will begin your SNTI questions.`;
+            } else {
+                response = `I am here with you. Please share a little more so I can support you properly.`;
+            }
+        }
+
         // Add assistant response to conversation history
         session.conversationHistory.push({
             sender: 'assistant',
@@ -598,7 +603,7 @@ Respond to their message with empathy and personalized guidance:`;
 }
 
 /**
- * Generate empathetic psychology response using Gemini AI
+ * Generate empathetic psychology response using configured AI provider
  * @param {string} userMessage - The user's message
  * @param {string} context - Additional context or system prompt
  * @returns {Promise<string>} - AI generated response

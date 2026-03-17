@@ -15,15 +15,12 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let email = localStorage.getItem('adminEmail');
+    const token = localStorage.getItem('adminToken');
+    const email = localStorage.getItem('adminEmail');
 
-    if (!email) {
-      email = 'admin@snti.local';
-      localStorage.setItem('adminEmail', email);
-    }
-
-    if (!localStorage.getItem('adminToken')) {
-      localStorage.setItem('adminToken', 'dev-admin-token');
+    if (!token || !email) {
+      navigate('/admin/login');
+      return;
     }
 
     setAdminEmail(email);

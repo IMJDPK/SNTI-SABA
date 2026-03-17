@@ -52,7 +52,7 @@ const Navigation = () => {
             <img
               src={PaitechLogo}
               alt="PAITECH Logo"
-              className="h-28 w-28 md:h-32 md:w-32 rounded-2xl object-contain shadow-sm"
+              className="h-28 w-28 md:h-32 md:w-32 object-contain"
             />
           </Link>
 
@@ -79,7 +79,7 @@ const Navigation = () => {
               to="/dashboard"
               className="px-4 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
             >
-              {user ? 'Dashboard' : 'Gov Dashboard'}
+              Dashboard
             </Link>
             <Link
               to="/app"
@@ -127,7 +127,7 @@ const Navigation = () => {
 
               <div className="mb-6 mt-2">
                 <div className="mb-3">
-                  <img src={PaitechLogo} alt="PAITECH Logo" className="h-24 w-24 rounded-2xl object-cover shadow-sm" />
+                  <img src={PaitechLogo} alt="PAITECH Logo" className="h-24 w-24 object-contain" />
                 </div>
               </div>
 
@@ -161,7 +161,7 @@ const Navigation = () => {
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-center border border-blue-200 text-blue-700 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
                 >
-                  Government Dashboard
+                  Dashboard
                 </Link>
                 {user && (
                   <button

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import GeminiLogo from '../assets/gemini-logo.png';
 
 const featureCards = [
   {
@@ -114,7 +113,7 @@ export default function Home() {
               Meet <span className="text-cyan-300">SABA</span>
             </h1>
             <p className="mx-auto mb-4 max-w-3xl text-xl text-slate-100 md:text-2xl">
-              Personality Type Identification (Powered By Gemini AI x SNTI)
+              Personality Type Identification (SNTI AI Guidance)
             </p>
             <p className="mx-auto mb-10 max-w-2xl text-base leading-7 text-slate-200 md:text-lg">
               Transformative learning through SNTI assessments, personalized strategy maps, and continuous AI support.
@@ -180,19 +179,6 @@ export default function Home() {
                 <p className="mt-2 text-sm text-slate-600">{stat.description}</p>
               </article>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 py-14 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <div className="flex flex-col items-center justify-center gap-5 text-center md:flex-row md:text-left">
-            <img src={GeminiLogo} alt="Google Gemini" className="h-12 w-auto" />
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Powered By</p>
-              <h3 className="text-2xl font-bold text-slate-900">Google Gemini AI</h3>
-              <p className="text-slate-600">Advanced intelligence for personalized psychological insights.</p>
-            </div>
           </div>
         </div>
       </section>

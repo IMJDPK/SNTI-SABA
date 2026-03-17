@@ -12,6 +12,7 @@ import {
   getQuestionSet,
 } from '../data/sntiQuestionBank.js';
 import GoogleSignInButton from '../components/GoogleSignInButton.jsx';
+import { isPreviewAuthEnabled } from '../utils/previewAuth.js';
 
 const RISK_STYLES = {
   GREEN: {
@@ -62,6 +63,7 @@ const getScaleOptions = (question, track) => {
 
 function MBTIAssessment() {
   const navigate = useNavigate();
+  const previewAuthEnabled = isPreviewAuthEnabled();
   const [ageInput, setAgeInput] = useState('');
   const [track, setTrack] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -225,6 +227,10 @@ function MBTIAssessment() {
   };
 
   const persistAssessmentToBackend = async (assessmentRecord) => {
+    if (previewAuthEnabled) {
+      return null;
+    }
+
     const token = localStorage.getItem('userToken');
     if (!token) throw new Error('Google sign-in is required to save this result.');
 
@@ -253,6 +259,11 @@ function MBTIAssessment() {
   };
 
   const handleContinueToGuidanceChat = async () => {
+    if (previewAuthEnabled) {
+      navigate('/psychology-chat');
+      return;
+    }
+
     try {
       setGoogleError('');
       setIsSavingResult(true);
@@ -373,14 +384,21 @@ function MBTIAssessment() {
                     Open Personality Profile
                   </button>
 
-                  {isGoogleLinked ? (
-                    <button
-                      onClick={handleContinueToGuidanceChat}
-                      disabled={isSavingResult}
-                      className="w-full rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isSavingResult ? 'Saving and opening chat...' : 'Continue to AI Guidance Chat'}
-                    </button>
+                  {previewAuthEnabled || isGoogleLinked ? (
+                    <div className="space-y-3">
+                      {previewAuthEnabled && (
+                        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                          Testing mode is active. Google sign-in and backend result sync are temporarily bypassed.
+                        </p>
+                      )}
+                      <button
+                        onClick={handleContinueToGuidanceChat}
+                        disabled={isSavingResult}
+                        className="w-full rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSavingResult ? 'Saving and opening chat...' : 'Continue to AI Guidance Chat'}
+                      </button>
+                    </div>
                   ) : (
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="mb-3 text-sm text-slate-700">

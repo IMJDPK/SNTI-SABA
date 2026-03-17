@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import GeminiLogo from '../assets/gemini-logo.png';
-
-import UserRegistrationModal from '../components/UserRegistrationModal';
 import GoogleSignInButton from '../components/GoogleSignInButton.jsx';
+import { isPreviewAuthEnabled } from '../utils/previewAuth.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function PsychologyChat() {
   const navigate = useNavigate();
+  const previewAuthEnabled = isPreviewAuthEnabled();
+  const [theme, setTheme] = useState(() => localStorage.getItem('snti_chat_theme') || 'dark');
 
   const storedAssessment = (() => {
     try {
@@ -19,7 +19,6 @@ function PsychologyChat() {
   })();
   const hasAssessment = Boolean(storedAssessment?.mbtiType);
 
-  const [showRegistration, setShowRegistration] = useState(!hasAssessment);
   const [userInfo, setUserInfo] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('snti_user') || 'null');
@@ -30,8 +29,9 @@ function PsychologyChat() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const usePostAssessmentMode = hasAssessment;
   const [requiresGoogleSignIn, setRequiresGoogleSignIn] = useState(
-    hasAssessment && userInfo?.provider !== 'google'
+    usePostAssessmentMode && !previewAuthEnabled && userInfo?.provider !== 'google'
   );
   const [authError, setAuthError] = useState('');
   const [sessionInfo, setSessionInfo] = useState({
@@ -42,19 +42,27 @@ function PsychologyChat() {
     progress: null
   });
 
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!messagesContainerRef.current) return;
+    messagesContainerRef.current.scrollTo({
+      top: messagesContainerRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
+
+  useEffect(() => {
+    localStorage.setItem('snti_chat_theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const initializePostAssessmentChat = async () => {
-      if (!hasAssessment || requiresGoogleSignIn || messages.length > 0) return;
+      if (!hasAssessment || !usePostAssessmentMode || requiresGoogleSignIn || messages.length > 0) return;
 
       try {
         setIsTyping(true);
@@ -63,17 +71,19 @@ function PsychologyChat() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             mode: 'post_assessment',
             message: `Hello, I completed my SNTI assessment. My type is ${storedAssessment.mbtiType}.`,
+            mbtiType: storedAssessment?.mbtiType,
+            riskTier: storedAssessment?.riskTier,
             conversationHistory: [],
           }),
         });
 
         const data = await response.json();
-        if (response.status === 401 && data.requiresGoogleSignIn) {
+        if (!previewAuthEnabled && response.status === 401 && data.requiresGoogleSignIn) {
           setRequiresGoogleSignIn(true);
           setAuthError(data.message || 'Google sign-in is required for AI guidance chat.');
           return;
@@ -97,59 +107,7 @@ function PsychologyChat() {
     };
 
     initializePostAssessmentChat();
-  }, [hasAssessment, requiresGoogleSignIn, messages.length, storedAssessment?.mbtiType]);
-
-  const handleUserRegistration = async (userData) => {
-    try {
-      // Store user info
-      setUserInfo(userData);
-      setShowRegistration(false);
-
-        // Automatically send welcome message to backend to initialize session
-        setIsTyping(true);
-      
-        const welcomeResponse = await fetch(`${API_URL}/api/psychology-chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: 'Hello', // Trigger message
-            userInfo: userData
-          })
-        });
-
-        if (!welcomeResponse.ok) {
-          throw new Error('Failed to initialize session');
-        }
-
-        const data = await welcomeResponse.json();
-      
-        // Add AI welcome response to messages
-        const aiMessage = {
-          id: 1,
-          text: data.response,
-          sender: 'ai',
-          timestamp: new Date()
-        };
-      
-        setMessages([aiMessage]);
-      
-        // Update session info
-        setSessionInfo({
-          sessionId: data.sessionId || '',
-          userName: data.userName || userData.name,
-          progress: data.progress || null,
-          mbtiType: data.mbtiType || null
-        });
-      
-        setIsTyping(false);
-    } catch (error) {
-      console.error('Registration error:', error);
-        setIsTyping(false);
-      alert('Failed to register. Please try again.');
-    }
-  };
+  }, [hasAssessment, usePostAssessmentMode, previewAuthEnabled, requiresGoogleSignIn, messages.length, storedAssessment?.mbtiType]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isTyping) return;
@@ -172,18 +130,24 @@ function PsychologyChat() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(hasAssessment ? { Authorization: `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           message: inputMessage,
           conversationHistory: messages,
           userInfo: userInfo, // Include user registration data
-          ...(hasAssessment ? { mode: 'post_assessment' } : {}),
+          mode: usePostAssessmentMode ? 'post_assessment' : 'chat',
+          ...(usePostAssessmentMode
+            ? {
+                mbtiType: storedAssessment?.mbtiType,
+                riskTier: storedAssessment?.riskTier,
+              }
+            : {}),
         })
       });
 
       const data = await response.json();
-      if (response.status === 401 && data.requiresGoogleSignIn) {
+      if (usePostAssessmentMode && !previewAuthEnabled && response.status === 401 && data.requiresGoogleSignIn) {
         setRequiresGoogleSignIn(true);
         setAuthError(data.message || 'Google sign-in is required for AI guidance chat.');
         throw new Error('Google sign-in required');
@@ -203,7 +167,7 @@ function PsychologyChat() {
       });
 
       // If test is complete, store session and redirect to profile page
-      if ((data.state === 'ASSESSMENT_COMPLETE' || data.state === 'TEST_COMPLETE') && data.mbtiType) {
+      if (!usePostAssessmentMode && (data.state === 'ASSESSMENT_COMPLETE' || data.state === 'TEST_COMPLETE') && data.mbtiType) {
         // Store session info for profile page
         localStorage.setItem('snti_test_session', JSON.stringify({
           sessionId: data.sessionId,
@@ -250,192 +214,208 @@ function PsychologyChat() {
     }
   };
 
+  const starterChips = [
+    'Help me understand my type better',
+    'I feel anxious before exams',
+    'Give me a 7-day study routine',
+    'How can I improve focus?',
+    'Help me build confidence',
+  ];
+
+  const showLanding = messages.length === 0 && !isTyping;
+  const isDark = theme === 'dark';
+
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* User Registration Modal */}
-      {showRegistration && (
-        <UserRegistrationModal
-          onSubmit={handleUserRegistration}
-          onClose={() => {
-            // Navigate back to home if user dismisses the registration
-            setShowRegistration(false);
-            navigate('/');
-          }}
-        />
-      )}
-
-      {hasAssessment && requiresGoogleSignIn && (
-        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
-          <p className="mb-3 text-sm text-amber-900">
-            Google sign-in is required to continue AI guidance after assessment. Your saved MBTI profile will be used instantly once sign-in is complete.
-          </p>
-          <GoogleSignInButton
-            onSuccess={(data) => {
-              setUserInfo({ ...data.user, provider: 'google' });
-              setRequiresGoogleSignIn(false);
-              setAuthError('');
-            }}
-            onError={(message) => setAuthError(message)}
-            text="signin_with"
-          />
-          {authError && <p className="mt-3 text-sm text-rose-700">{authError}</p>}
+    <div className={`h-[calc(100vh-6rem)] overflow-hidden md:h-[calc(100vh-7rem)] ${isDark ? 'bg-[#0b0d12] text-slate-100' : 'bg-slate-100 text-slate-900'}`}>
+      <div className="mx-auto flex h-full w-full max-w-[1920px]">
+      <aside className={`hidden w-64 shrink-0 px-4 py-4 xl:flex xl:flex-col ${isDark ? 'border-r border-slate-800 bg-[#11141b]' : 'border-r border-slate-200 bg-white'}`}>
+        <div className="mb-6 flex items-center gap-3 px-2">
+          <span className="inline-block h-3 w-3 rounded-full bg-cyan-400" aria-hidden="true" />
+          <span className={`text-lg font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>SABA</span>
         </div>
-      )}
+        <button
+          type="button"
+          className={`mb-4 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${isDark ? 'border border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800' : 'border border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200'}`}
+          onClick={() => {
+            setMessages([]);
+            setInputMessage('');
+          }}
+        >
+          + New chat
+        </button>
+        <div className={`space-y-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/70' : 'bg-slate-100'}`}>Psychology support</div>
+          <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/40' : 'bg-slate-100'}`}>Study routines</div>
+          <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/40' : 'bg-slate-100'}`}>Wellbeing check-ins</div>
+        </div>
+      </aside>
 
-      <div className="bg-white rounded-lg shadow-lg h-[700px] flex flex-col">
-        {/* Header with Session Info */}
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
-          <div className="flex items-center justify-between mb-2">
+      <section className="flex min-w-0 flex-1 flex-col">
+        <div className={`border-b px-4 py-3 sm:px-6 ${isDark ? 'border-slate-800 bg-[#0e1118]' : 'border-slate-200 bg-white'}`}>
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                SNTI TEST BY SULNAQ x IMJD
-              </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <img 
-                  src={GeminiLogo} 
-                  alt="Google Gemini" 
-                  className="h-4 w-auto"
-                />
-                <p className="text-sm text-gray-600">
-                  Powered by Google Gemini AI • Discover Your Personality Type
-                </p>
-              </div>
+              <h1 className={`text-lg font-semibold sm:text-xl ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>SNTI AI Guidance</h1>
+              <p className={`mt-1 text-xs sm:text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Personalized to your SNTI profile</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-green-600 font-medium">AI Online</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-xs text-emerald-500">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                AI Online
+              </div>
+              <button
+                type="button"
+                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${isDark ? 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800' : 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              >
+                {isDark ? 'Light mode' : 'Dark mode'}
+              </button>
             </div>
           </div>
-          
-          {/* Session Info Bar */}
+
           {sessionInfo.sessionId && (
-            <div className="mt-3 p-3 bg-white rounded-lg border border-purple-200 flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-4">
-                {sessionInfo.userName && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-purple-600 font-semibold">👤</span>
-                    <span className="font-medium text-gray-700">{sessionInfo.userName}</span>
-                  </div>
-                )}
-                <div className="flex items-center space-x-2">
-                  <span className="text-blue-600 font-semibold">🆔</span>
-                  <span className="text-gray-600">{sessionInfo.sessionId}</span>
-                </div>
-                {sessionInfo.progress && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-green-600 font-semibold">📊</span>
-                    <span className="text-gray-600">Progress: {sessionInfo.progress}</span>
-                  </div>
-                )}
-              </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+              <span className={`rounded-full border px-3 py-1 ${isDark ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-slate-300 bg-slate-100 text-slate-700'}`}>👤 {sessionInfo.userName || 'Student'}</span>
+              <span className={`rounded-full border px-3 py-1 ${isDark ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-slate-300 bg-slate-100 text-slate-700'}`}>🆔 {sessionInfo.sessionId}</span>
               {sessionInfo.mbtiType && (
-                <div className="flex items-center space-x-2 bg-purple-100 px-3 py-1 rounded-full">
-                  <span className="text-purple-700 font-semibold">🎯 {sessionInfo.mbtiType}</span>
-                </div>
+                <span className="rounded-full border border-cyan-500/50 bg-cyan-500/10 px-3 py-1 font-semibold text-cyan-200">🎯 {sessionInfo.mbtiType}</span>
+              )}
+              {previewAuthEnabled && (
+                <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-amber-200">Testing Mode</span>
               )}
             </div>
           )}
-          
-          {sessionInfo.mbtiType && (
-            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-gray-700">
-                🎉 Assessment complete — your type is <strong className="text-blue-700">{sessionInfo.mbtiType}</strong>. All results are free to view.
+
+          {usePostAssessmentMode && requiresGoogleSignIn && (
+            <div className="mt-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+              <p className="mb-3 text-sm leading-6 text-amber-100">
+                Google sign-in is required to continue AI guidance after assessment. Your saved MBTI profile will be used instantly once sign-in is complete.
               </p>
+              <GoogleSignInButton
+                onSuccess={(data) => {
+                  setUserInfo({ ...data.user, provider: 'google' });
+                  setRequiresGoogleSignIn(false);
+                  setAuthError('');
+                }}
+                onError={(message) => setAuthError(message)}
+                text="signin_with"
+              />
+              {authError && <p className="mt-3 text-sm text-rose-300">{authError}</p>}
             </div>
           )}
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
-                  message.sender === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                <div className="text-sm whitespace-pre-wrap">
-                  {message.text.split('\n').map((line, i) => {
-                    // Handle bold text **text**
-                    if (line.includes('**')) {
-                      const parts = line.split('**');
-                      return (
-                        <p key={i} className={i > 0 ? 'mt-2' : ''}>
-                          {parts.map((part, j) => 
-                            j % 2 === 1 ? <strong key={j}>{part}</strong> : part
-                          )}
-                        </p>
-                      );
-                    }
-                    // Handle bullet points
-                    if (line.trim().startsWith('✓') || line.trim().startsWith('→') || 
-                        line.trim().startsWith('✨') || line.trim().startsWith('💼') ||
-                        line.trim().startsWith('💡') || line.trim().startsWith('🎯') ||
-                        line.trim().startsWith('❤️')) {
-                      return <p key={i} className="ml-2 mt-1">{line}</p>;
-                    }
-                    // Handle section headers (lines ending with :)
-                    if (line.trim().endsWith(':') && line.length < 50) {
-                      return <p key={i} className="font-semibold mt-3 mb-1">{line}</p>;
-                    }
-                    // Regular paragraphs
-                    return line ? <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p> : <br key={i} />;
-                  })}
-                </div>
-                <p className={`text-xs mt-2 ${
-                  message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
-                }`}>
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div className="min-h-0 flex flex-1 flex-col">
+          <div ref={messagesContainerRef} className={`min-h-0 flex-1 overflow-y-auto ${showLanding ? 'flex items-center justify-center px-4 py-8' : 'px-4 py-5 sm:px-6'}`}>
+            {showLanding ? (
+              <div className="mx-auto w-full max-w-3xl text-center">
+                <div className="mb-3 text-sm text-cyan-300">Hi {sessionInfo.userName || 'there'}</div>
+                <h2 className={`text-3xl font-semibold sm:text-4xl ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Where should we start?</h2>
+                <p className={`mx-auto mt-3 max-w-2xl text-sm leading-7 sm:text-base ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Ask SABA anything about your personality profile, exam anxiety, focus, study planning, or emotional wellbeing.
                 </p>
               </div>
-            </div>
-          ))}
-          
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            ) : (
+              <div className="mx-auto w-full max-w-5xl space-y-4">
+                {messages.map((message) => (
+                  <div key={message.id} className="w-full px-1">
+                    <div className={`mb-1 text-[11px] uppercase tracking-[0.16em] ${message.sender === 'user' ? 'text-right text-cyan-300' : isDark ? 'text-left text-slate-400' : 'text-left text-slate-500'}`}>
+                      {message.sender === 'user' ? 'You' : 'SABA'}
+                    </div>
+                    <div className={`whitespace-pre-wrap text-sm leading-7 sm:text-base ${message.sender === 'user' ? isDark ? 'text-right text-slate-100' : 'text-right text-slate-900' : isDark ? 'text-left text-slate-200' : 'text-left text-slate-700'}`}>
+                      {message.text.split('\n').map((line, i) => {
+                        if (line.includes('**')) {
+                          const parts = line.split('**');
+                          return (
+                            <p key={i} className={i > 0 ? 'mt-2' : ''}>
+                              {parts.map((part, j) => (j % 2 === 1 ? <strong key={j}>{part}</strong> : part))}
+                            </p>
+                          );
+                        }
+                        if (
+                          line.trim().startsWith('✓') ||
+                          line.trim().startsWith('→') ||
+                          line.trim().startsWith('✨') ||
+                          line.trim().startsWith('💼') ||
+                          line.trim().startsWith('💡') ||
+                          line.trim().startsWith('🎯') ||
+                          line.trim().startsWith('❤️')
+                        ) {
+                          return <p key={i} className="mt-1">{line}</p>;
+                        }
+                        if (line.trim().endsWith(':') && line.length < 50) {
+                          return <p key={i} className="mb-1 mt-3 font-semibold">{line}</p>;
+                        }
+                        return line ? <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p> : <br key={i} />;
+                      })}
+                    </div>
+                    <p className={`mt-2 text-[11px] ${message.sender === 'user' ? 'text-right text-slate-500' : 'text-left text-slate-500'}`}>
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                ))}
+
+                {isTyping && (
+                  <div className="w-full px-1 text-left">
+                    <div className="mb-1 text-[11px] uppercase tracking-[0.16em] text-slate-400">SABA</div>
+                    <div className="flex space-x-1 py-1">
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-slate-500" />
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-slate-500" style={{ animationDelay: '0.1s' }} />
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-slate-500" style={{ animationDelay: '0.2s' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className={`border-t p-4 sm:px-6 ${isDark ? 'border-slate-800 bg-[#0e1118]' : 'border-slate-200 bg-white'}`}>
+            <div className="mx-auto w-full max-w-5xl">
+              {showLanding && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {starterChips.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setInputMessage(chip)}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition ${isDark ? 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:bg-slate-800' : 'border-slate-300 bg-slate-100 text-slate-700 hover:border-slate-400 hover:bg-slate-200'}`}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className={`rounded-3xl border p-3 shadow-lg ${isDark ? 'border-slate-700 bg-slate-900/80' : 'border-slate-300 bg-slate-50'}`}>
+                <div className="flex items-end gap-3">
+                  <textarea
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={usePostAssessmentMode && requiresGoogleSignIn ? 'Sign in with Google to unlock AI guidance chat...' : 'Ask SABA anything...'}
+                    disabled={usePostAssessmentMode && requiresGoogleSignIn}
+                    className={`max-h-32 min-h-[52px] flex-1 resize-none rounded-2xl border px-4 py-3 text-sm outline-none focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60 ${isDark ? 'border-slate-700 bg-[#11141b] text-slate-100' : 'border-slate-300 bg-white text-slate-900'}`}
+                    rows="2"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim() || isTyping || (usePostAssessmentMode && requiresGoogleSignIn)}
+                    className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Send
+                  </button>
                 </div>
               </div>
+
+              <p className={`mt-2 text-xs ${isDark ? 'text-slate-500' : 'text-slate-600'}`}>
+                {usePostAssessmentMode
+                  ? 'AI guidance is personalized by your saved SNTI type. Post-assessment mode keeps your profile context in every response.'
+                  : 'Testing mode is active. Google sign-in gating is bypassed for local testing.'}
+              </p>
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex space-x-4">
-            <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={requiresGoogleSignIn ? 'Sign in with Google to unlock AI guidance chat...' : 'Share your thoughts...'}
-              disabled={requiresGoogleSignIn}
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:text-gray-500"
-              rows="2"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isTyping || requiresGoogleSignIn}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Send
-            </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            💡 AI guidance is personalized by your saved SNTI type. Post-assessment chat requires Google sign-in for safety monitoring and secure profile linkage.
-          </p>
         </div>
+      </section>
       </div>
-
     </div>
   );
 }

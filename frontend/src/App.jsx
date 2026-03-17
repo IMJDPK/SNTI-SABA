@@ -2,14 +2,12 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation.jsx';
 import LegacyThemeWrapper from './components/LegacyThemeWrapper.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
-import Home from './pages/Home.jsx';
 import NewHome from './pages/NewHome.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import MBTIAssessment from './pages/MBTIAssessment.jsx';
 import PsychologyChat from './pages/PsychologyChat.jsx';
-import Admin from './pages/Admin.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import PersonalityProfile from './pages/PersonalityProfile.jsx';
@@ -48,7 +46,6 @@ function App() {
           <Routes>
           <Route path="/" element={withLegacyTheme(<NewHome />)} />
           <Route path="/app" element={<MBTIAssessment />} />
-          <Route path="/old-home" element={withLegacyTheme(<Home />)} />
           <Route path="/mbti-assessment" element={<MBTIAssessment />} />
           <Route path="/psychology-chat" element={withLegacyTheme(<PsychologyChat />)} />
           <Route path="/personality/:type" element={withLegacyTheme(<PersonalityProfile />)} />
@@ -59,7 +56,6 @@ function App() {
           <Route path="/admin" element={withLegacyTheme(previewAuthEnabled ? <AdminDashboard /> : <AdminLogin />)} />
           <Route path="/admin/login" element={withLegacyTheme(previewAuthEnabled ? <AdminDashboard /> : <AdminLogin />)} />
           <Route path="/admin/dashboard" element={withLegacyTheme(<AdminDashboard />)} />
-          <Route path="/admin/old" element={withLegacyTheme(<Admin />)} />
           
           {/* Test Variant Pages */}
           <Route path="/snti-career" element={withLegacyTheme(<SNTICareer />)} />
@@ -80,12 +76,12 @@ function App() {
           <Route path="/workplace-test" element={withLegacyTheme(<WorkplaceTest />)} />
           
           {/* Placeholder routes for upcoming pages */}
-          <Route path="/all-tests" element={withLegacyTheme(<Home />)} />
-          <Route path="/for-schools" element={withLegacyTheme(<Home />)} />
-          <Route path="/for-universities" element={withLegacyTheme(<Home />)} />
-          <Route path="/bulk-pricing" element={withLegacyTheme(<Home />)} />
-          <Route path="/careers-guide" element={withLegacyTheme(<Home />)} />
-          <Route path="/compatibility" element={withLegacyTheme(<Home />)} />
+          <Route path="/all-tests" element={withLegacyTheme(<NotFound />)} />
+          <Route path="/for-schools" element={withLegacyTheme(<NotFound />)} />
+          <Route path="/for-universities" element={withLegacyTheme(<NotFound />)} />
+          <Route path="/bulk-pricing" element={withLegacyTheme(<NotFound />)} />
+          <Route path="/careers-guide" element={withLegacyTheme(<NotFound />)} />
+          <Route path="/compatibility" element={withLegacyTheme(<NotFound />)} />
           
           {/* Auth Routes */}
           <Route path="/login" element={withLegacyTheme(previewAuthEnabled ? <Dashboard /> : <Login />)} />
