@@ -114,3 +114,6 @@ node_modules
 client_secret*.json
 credentials.json
 *.json
+!package-lock.json
+!frontend/package-lock.json
+!backend/package-lock.json
