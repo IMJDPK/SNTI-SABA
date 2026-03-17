@@ -117,3 +117,4 @@ credentials.json
 !package-lock.json
 !frontend/package-lock.json
 !backend/package-lock.json
+!frontend/vercel.json

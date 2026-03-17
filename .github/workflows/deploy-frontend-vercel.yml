@@ -28,8 +28,9 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          # Optional: override the API URL at build time via GitHub Secret
+          # Build-time frontend env vars for Vite production bundle
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Deploy to Vercel
