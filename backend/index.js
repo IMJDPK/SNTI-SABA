@@ -23,7 +23,7 @@ const server = http.createServer(app);
 
 // Load environment variables
 dotenv.config();
-const isBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH_FOR_TESTING !== 'false';
+const isBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH_FOR_TESTING === 'true';
 
 // Middleware
 const allowedOrigins = [
@@ -582,7 +582,7 @@ app.post('/api/psychology-chat', async (req, res) => {
 });
 
 // Get all active sessions (admin endpoint)
-app.get('/api/sessions', async (req, res) => {
+app.get('/api/sessions', requireAdmin, async (req, res) => {
     try {
         const sessions = getAllSessions();
         res.json({ 

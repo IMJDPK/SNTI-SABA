@@ -76,14 +76,11 @@ function MBTIAssessment() {
   const [isGoogleLinked, setIsGoogleLinked] = useState(false);
 
   useEffect(() => {
+    const token = localStorage.getItem('userToken');
     const userData = localStorage.getItem('snti_user');
-    if (!userData) {
-      const guestUser = {
-        id: 'test-user',
-        name: 'Test User',
-        email: 'test@snti.local',
-      };
-      localStorage.setItem('snti_user', JSON.stringify(guestUser));
+    if (!token || !userData) {
+      navigate('/login', { replace: true });
+      return;
     }
 
     const refreshGoogleState = () => {
@@ -104,7 +101,7 @@ function MBTIAssessment() {
       }
       window.removeEventListener('storage', refreshGoogleState);
     };
-  }, []);
+  }, [navigate]);
 
   const user = useMemo(() => {
     try {

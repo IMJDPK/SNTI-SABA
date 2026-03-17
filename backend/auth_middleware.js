@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 const DEFAULT_SECRET = 'dev-secret-change-me';
-const isBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH_FOR_TESTING !== 'false';
+const isBypassEnabled = process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH_FOR_TESTING === 'true';
 
 export function generateJwt(payload, expiresIn = '7d') {
   const secret = process.env.JWT_SECRET_KEY || DEFAULT_SECRET;

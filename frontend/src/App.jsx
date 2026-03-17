@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation.jsx';
 import LegacyThemeWrapper from './components/LegacyThemeWrapper.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
@@ -28,11 +28,23 @@ import About from './pages/About.jsx';
 import SNTIFramework from './pages/SNTIFramework.jsx';
 import Beneficiaries from './pages/Beneficiaries.jsx';
 import Careers from './pages/Careers.jsx';
-import { isPreviewAuthEnabled } from './utils/previewAuth.js';
 import './styles/design-system.css';
 
+function hasClientAuth() {
+  return Boolean(localStorage.getItem('userToken') && localStorage.getItem('snti_user'));
+}
+
+function ProtectedRoute({ children }) {
+  const location = useLocation();
+
+  if (!hasClientAuth()) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return children;
+}
+
 function App() {
-  const previewAuthEnabled = isPreviewAuthEnabled();
   const withLegacyTheme = (element) => <LegacyThemeWrapper>{element}</LegacyThemeWrapper>;
 
   return (
@@ -45,16 +57,16 @@ function App() {
         <div className="flex-1">
           <Routes>
           <Route path="/" element={withLegacyTheme(<NewHome />)} />
-          <Route path="/app" element={<MBTIAssessment />} />
-          <Route path="/mbti-assessment" element={<MBTIAssessment />} />
+          <Route path="/app" element={withLegacyTheme(<ProtectedRoute><MBTIAssessment /></ProtectedRoute>)} />
+          <Route path="/mbti-assessment" element={withLegacyTheme(<ProtectedRoute><MBTIAssessment /></ProtectedRoute>)} />
           <Route path="/psychology-chat" element={withLegacyTheme(<PsychologyChat />)} />
           <Route path="/personality/:type" element={withLegacyTheme(<PersonalityProfile />)} />
           <Route path="/about" element={<About />} />
           <Route path="/snti-framework" element={<SNTIFramework />} />
           <Route path="/beneficiaries" element={<Beneficiaries />} />
           <Route path="/careers" element={<Careers />} />
-          <Route path="/admin" element={withLegacyTheme(previewAuthEnabled ? <AdminDashboard /> : <AdminLogin />)} />
-          <Route path="/admin/login" element={withLegacyTheme(previewAuthEnabled ? <AdminDashboard /> : <AdminLogin />)} />
+          <Route path="/admin" element={withLegacyTheme(<AdminLogin />)} />
+          <Route path="/admin/login" element={withLegacyTheme(<AdminLogin />)} />
           <Route path="/admin/dashboard" element={withLegacyTheme(<AdminDashboard />)} />
           
           {/* Test Variant Pages */}
@@ -84,9 +96,9 @@ function App() {
           <Route path="/compatibility" element={withLegacyTheme(<NotFound />)} />
           
           {/* Auth Routes */}
-          <Route path="/login" element={withLegacyTheme(previewAuthEnabled ? <Dashboard /> : <Login />)} />
-          <Route path="/signup" element={withLegacyTheme(previewAuthEnabled ? <MBTIAssessment /> : <Signup />)} />
-          <Route path="/dashboard" element={withLegacyTheme(<Dashboard />)} />
+          <Route path="/login" element={withLegacyTheme(<Login />)} />
+          <Route path="/signup" element={withLegacyTheme(<Signup />)} />
+          <Route path="/dashboard" element={withLegacyTheme(<ProtectedRoute><Dashboard /></ProtectedRoute>)} />
           
           {/* 404 Not Found - Must be last */}
           <Route path="*" element={withLegacyTheme(<NotFound />)} />

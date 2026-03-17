@@ -8,17 +8,20 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem('userToken');
     const userData = localStorage.getItem('snti_user');
-    if (!userData) {
-      const guestUser = {
-        id: 'test-user',
-        name: 'Test User',
-        email: 'test@snti.local'
-      };
-      localStorage.setItem('snti_user', JSON.stringify(guestUser));
-      setUser(guestUser);
-    } else {
+    if (!token || !userData) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    try {
       setUser(JSON.parse(userData));
+    } catch {
+      localStorage.removeItem('snti_user');
+      localStorage.removeItem('userToken');
+      navigate('/login', { replace: true });
+      return;
     }
 
     // Load test history from localStorage
@@ -33,6 +36,7 @@ const Dashboard = () => {
   }, [navigate]);
 
   const handleLogout = () => {
+    localStorage.removeItem('userToken');
     localStorage.removeItem('snti_user');
     navigate('/');
   };

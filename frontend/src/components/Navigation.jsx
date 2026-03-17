@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { isPreviewAuthEnabled } from '../utils/previewAuth.js';
 import PaitechLogo from '../assets/paitech-logo.png';
 
 const Navigation = () => {
@@ -8,16 +7,11 @@ const Navigation = () => {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const previewAuthEnabled = isPreviewAuthEnabled();
 
   useEffect(() => {
     const userData = localStorage.getItem('snti_user');
     if (userData) {
       setUser(JSON.parse(userData));
-    } else if (previewAuthEnabled) {
-      const guestUser = { id: 'preview-user', name: 'Preview User', email: 'preview@snti.local' };
-      localStorage.setItem('snti_user', JSON.stringify(guestUser));
-      setUser(guestUser);
     }
     const handleStorageChange = () => {
       const d = localStorage.getItem('snti_user');
@@ -25,7 +19,7 @@ const Navigation = () => {
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [previewAuthEnabled]);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('userToken');
