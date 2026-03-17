@@ -34,11 +34,25 @@ function hasClientAuth() {
   return Boolean(localStorage.getItem('userToken') && localStorage.getItem('snti_user'));
 }
 
+function hasAdminAuth() {
+  return Boolean(localStorage.getItem('adminToken') && localStorage.getItem('adminEmail'));
+}
+
 function ProtectedRoute({ children }) {
   const location = useLocation();
 
   if (!hasClientAuth()) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return children;
+}
+
+function ProtectedAdminRoute({ children }) {
+  const location = useLocation();
+
+  if (!hasAdminAuth()) {
+    return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
   }
 
   return children;
@@ -67,7 +81,7 @@ function App() {
           <Route path="/careers" element={<Careers />} />
           <Route path="/admin" element={withLegacyTheme(<AdminLogin />)} />
           <Route path="/admin/login" element={withLegacyTheme(<AdminLogin />)} />
-          <Route path="/admin/dashboard" element={withLegacyTheme(<AdminDashboard />)} />
+          <Route path="/admin/dashboard" element={withLegacyTheme(<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>)} />
           
           {/* Test Variant Pages */}
           <Route path="/snti-career" element={withLegacyTheme(<SNTICareer />)} />

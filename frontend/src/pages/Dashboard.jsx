@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [testHistory, setTestHistory] = useState([]);
+  const [latestAssessment, setLatestAssessment] = useState(null);
+  const [assessmentError, setAssessmentError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadDashboard = async () => {
     const token = localStorage.getItem('userToken');
     const userData = localStorage.getItem('snti_user');
     if (!token || !userData) {
@@ -24,15 +29,32 @@ const Dashboard = () => {
       return;
     }
 
-    // Load test history from localStorage
-    // In production, this would be an API call
     const loadTestHistory = () => {
       const sessions = JSON.parse(localStorage.getItem('snti_test_sessions') || '[]');
       setTestHistory(sessions);
-      setLoading(false);
     };
 
     loadTestHistory();
+    try {
+      const response = await fetch(`${API_URL}/api/assessment/latest`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setLatestAssessment(data.assessment || null);
+      } else {
+        setAssessmentError(data.error || 'Could not load your saved progress.');
+      }
+    } catch {
+      setAssessmentError('Could not load your saved progress.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    loadDashboard();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -62,6 +84,9 @@ const Dashboard = () => {
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
+
+  const completedCount = testHistory.filter(t => t.completed).length;
+  const inProgressCount = testHistory.filter(t => !t.completed).length;
 
   if (loading) {
     return (
@@ -103,7 +128,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-primary-dark">{testHistory.length}</div>
-                  <div className="text-sm text-gray-600">Tests Completed</div>
+                  <div className="text-sm text-gray-600">Assessments Started</div>
                 </div>
               </div>
             </div>
@@ -115,7 +140,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-primary-dark">
-                    {testHistory.filter(t => t.completed).length}
+                    {completedCount}
                   </div>
                   <div className="text-sm text-gray-600">Completed Profiles</div>
                 </div>
@@ -129,12 +154,71 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-primary-dark">
-                    {testHistory.filter(t => !t.completed).length}
+                    {inProgressCount}
                   </div>
                   <div className="text-sm text-gray-600">In Progress</div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6 mb-8">
+          <div className="card">
+            <h2 className="text-2xl font-bold text-primary-dark mb-4">Account Details</h2>
+            <div className="space-y-3 text-sm text-gray-700">
+              <div className="flex justify-between gap-4 border-b border-gray-100 pb-3">
+                <span className="font-medium text-gray-500">Name</span>
+                <span>{user?.name || 'Not provided'}</span>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-gray-100 pb-3">
+                <span className="font-medium text-gray-500">Email</span>
+                <span>{user?.email || 'Not provided'}</span>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-gray-100 pb-3">
+                <span className="font-medium text-gray-500">Sign-in Method</span>
+                <span className="capitalize">{user?.provider || user?.authProvider || 'email'}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="font-medium text-gray-500">Saved Assessments</span>
+                <span>{completedCount}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2 className="text-2xl font-bold text-primary-dark mb-4">Your Progress</h2>
+            {latestAssessment ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Latest Type</span>
+                  <span className={`px-3 py-1 rounded-lg font-semibold ${getPersonalityColor(latestAssessment.mbtiType)}`}>
+                    {latestAssessment.mbtiType}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Risk Tier</span>
+                  <span className="font-semibold text-primary-dark">{latestAssessment.riskTier || 'GREEN'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Track</span>
+                  <span className="capitalize">{latestAssessment.track || 'standard'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Last Saved</span>
+                  <span>{new Date(latestAssessment.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-gray-600 mb-4">
+                  {assessmentError || 'You have not saved an assessment yet.'}
+                </p>
+                <Link to="/mbti-assessment" className="btn btn-primary inline-flex">
+                  Start Your Assessment
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
