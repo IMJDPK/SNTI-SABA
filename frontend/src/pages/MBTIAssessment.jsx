@@ -28,7 +28,7 @@ const RISK_STYLES = {
   RED: {
     badge: 'bg-rose-100 text-rose-700 border-rose-200',
     panel: 'border-rose-200 bg-rose-50',
-    summary: 'Immediate counsellor review is required based on the screening responses.',
+    summary: 'Immediate advisor review is required based on the screening responses.',
   },
 };
 
@@ -569,28 +569,51 @@ function MBTIAssessment() {
             </div>
           )}
 
-          <div className={`grid gap-3 ${scaleOptions.length === 5 ? 'md:grid-cols-5' : 'md:grid-cols-3'}`}>
-            {scaleOptions.map((option) => {
-              const isSelected = answers[currentQuestion.id] === option.value;
+          <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 md:p-6">
+            <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <span>{isHarmonySection ? 'Lower alignment' : `Aligns with: ${currentQuestion.pole_a_label}`}</span>
+              <span>{isHarmonySection ? 'Higher alignment' : `Aligns with: ${currentQuestion.pole_b_label}`}</span>
+            </div>
 
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleAnswer(currentQuestion.id, option.value)}
-                  className={`rounded-[1.5rem] border px-4 py-5 text-left transition ${
-                    isSelected
-                      ? 'border-slate-950 bg-slate-950 text-white shadow-lg'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50'
-                  }`}
-                >
-                  <div className="mb-2 text-sm font-semibold uppercase tracking-[0.18em]">
-                    {option.face ? option.face : `Option ${option.value}`}
-                  </div>
-                  <div className="text-sm leading-6">{option.label}</div>
-                </button>
-              );
-            })}
+            <div className={`mx-auto grid max-w-3xl gap-2 sm:gap-4 ${scaleOptions.length === 5 ? 'grid-cols-5' : 'grid-cols-3'}`}>
+              {scaleOptions.map((option) => {
+                const isSelected = answers[currentQuestion.id] === option.value;
+                const isNeutral = scaleOptions.length === 5 && option.value === 3;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleAnswer(currentQuestion.id, option.value)}
+                    aria-label={option.label}
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <span
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-semibold transition sm:h-12 sm:w-12 ${
+                        isSelected
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/15'
+                          : isNeutral
+                            ? 'border-sky-400 bg-white text-slate-700'
+                            : 'border-slate-300 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50'
+                      }`}
+                    >
+                      {option.value}
+                    </span>
+                    {isNeutral && (
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Neutral
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className={`mx-auto mt-4 grid max-w-3xl gap-2 text-center text-xs text-slate-600 sm:gap-4 ${scaleOptions.length === 5 ? 'grid-cols-5' : 'grid-cols-3'}`}>
+              {scaleOptions.map((option) => (
+                <span key={`label-${option.value}`}>{option.face ? option.face : option.label}</span>
+              ))}
+            </div>
           </div>
 
           {isHarmonySection && (
