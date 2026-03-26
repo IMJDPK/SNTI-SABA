@@ -7,7 +7,7 @@ import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import MBTIAssessment from './pages/MBTIAssessment.jsx';
-import PsychologyChat from './pages/PsychologyChat.jsx';
+import PersonalityChat from './pages/PersonalityChat.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import PersonalityProfile from './pages/PersonalityProfile.jsx';
@@ -73,7 +73,7 @@ function App() {
           <Route path="/" element={withLegacyTheme(<NewHome />)} />
           <Route path="/app" element={withLegacyTheme(<ProtectedRoute><MBTIAssessment /></ProtectedRoute>)} />
           <Route path="/mbti-assessment" element={withLegacyTheme(<ProtectedRoute><MBTIAssessment /></ProtectedRoute>)} />
-          <Route path="/psychology-chat" element={withLegacyTheme(<PsychologyChat />)} />
+          <Route path="/personality-chat" element={withLegacyTheme(<PersonalityChat />)} />
           <Route path="/personality/:type" element={withLegacyTheme(<PersonalityProfile />)} />
           <Route path="/about" element={<About />} />
           <Route path="/snti-framework" element={<SNTIFramework />} />

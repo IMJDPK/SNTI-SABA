@@ -285,17 +285,17 @@ export const MBTI_TYPES = {
         description: 'ISFJs are warm, caring individuals who are deeply committed to their responsibilities. They have excellent memories for details about people and are highly attuned to others\' needs.',
         strengths: ['Supportive', 'Reliable', 'Patient', 'Observant', 'Practical', 'Loyal'],
         weaknesses: ['Can be too selfless', 'Dislikes conflict', 'May avoid change', 'Can be overly sensitive'],
-        careers: ['Nurse', 'Teacher', 'Counselor', 'Administrator', 'Social Worker', 'Librarian'],
+        careers: ['Nurse', 'Teacher', 'Learning Advisor', 'Administrator', 'Social Worker', 'Librarian'],
         relationships: 'ISFJs are devoted partners who create warm, stable relationships. They express love through caring actions.',
         growth: 'Learn to say no and prioritize self-care. Practice accepting and adapting to change more easily.'
     },
     'INFJ': {
-        name: 'The Counselor',
+        name: 'The Advisor',
         title: 'Insightful, Idealistic, Principled',
         description: 'INFJs are deep, complex individuals with strong values and convictions. They have a unique ability to understand people and are driven by their vision of how things should be.',
         strengths: ['Insightful', 'Creative', 'Principled', 'Passionate', 'Empathetic', 'Inspiring'],
         weaknesses: ['Can be perfectionistic', 'May burn out', 'Sometimes too private', 'Can be stubborn'],
-        careers: ['Counselor', 'Psychologist', 'Writer', 'Teacher', 'Artist', 'Social Worker'],
+        careers: ['Personality Advisor', 'Personality Specialist', 'Writer', 'Teacher', 'Artist', 'Social Worker'],
         relationships: 'INFJs seek deep, meaningful connections. They are supportive partners who value authenticity and understanding.',
         growth: 'Practice self-care and setting boundaries. Learn to be more flexible and accept imperfection.'
     },
@@ -335,7 +335,7 @@ export const MBTI_TYPES = {
         description: 'INFPs are idealistic, creative souls guided by their values. They are empathetic, open-minded, and deeply committed to personal growth and helping others.',
         strengths: ['Idealistic', 'Creative', 'Empathetic', 'Open-minded', 'Passionate', 'Authentic'],
         weaknesses: ['Can be too idealistic', 'May take things personally', 'Sometimes impractical', 'Can be self-critical'],
-        careers: ['Writer', 'Counselor', 'Artist', 'Psychologist', 'Social Worker', 'Teacher'],
+        careers: ['Writer', 'Personality Advisor', 'Artist', 'Personality Specialist', 'Social Worker', 'Teacher'],
         relationships: 'INFPs seek deep, authentic connections. They are supportive, loyal partners who value understanding.',
         growth: 'Practice being more practical and assertive. Learn to separate personal worth from external criticism.'
     },
@@ -375,7 +375,7 @@ export const MBTI_TYPES = {
         description: 'ENFPs are enthusiastic, creative individuals with a contagious energy. They see life as full of possibilities and are driven by their values and desire to help others.',
         strengths: ['Enthusiastic', 'Creative', 'Warm', 'Excellent communicators', 'Curious', 'Empathetic'],
         weaknesses: ['Can be unfocused', 'May overthink', 'Sometimes overly emotional', 'Can procrastinate'],
-        careers: ['Counselor', 'Writer', 'Teacher', 'Actor', 'Entrepreneur', 'Social Worker'],
+        careers: ['Personality Advisor', 'Writer', 'Teacher', 'Actor', 'Entrepreneur', 'Social Worker'],
         relationships: 'ENFPs are passionate, supportive partners who value deep emotional connections.',
         growth: 'Practice focus and follow-through. Work on managing emotions and being more practical.'
     },
@@ -405,7 +405,7 @@ export const MBTI_TYPES = {
         description: 'ESFJs are caring, social individuals who thrive on helping others. They are warm, conscientious, and have a strong desire to belong and contribute to their community.',
         strengths: ['Caring', 'Social', 'Loyal', 'Practical', 'Organized', 'Supportive'],
         weaknesses: ['Can be too selfless', 'May be needy', 'Sometimes inflexible', 'Can be overly sensitive'],
-        careers: ['Nurse', 'Teacher', 'Social Worker', 'Event Coordinator', 'Office Manager', 'Counselor'],
+        careers: ['Nurse', 'Teacher', 'Social Worker', 'Event Coordinator', 'Office Manager', 'Learning Advisor'],
         relationships: 'ESFJs are devoted, warm partners who create harmonious, supportive relationships.',
         growth: 'Learn to prioritize self-care. Practice accepting change and handling criticism.'
     },
@@ -415,7 +415,7 @@ export const MBTI_TYPES = {
         description: 'ENFJs are charismatic, inspiring leaders who are driven by their desire to help others reach their potential. They are natural teachers with excellent people skills.',
         strengths: ['Charismatic', 'Inspiring', 'Altruistic', 'Excellent communicators', 'Empathetic', 'Organized'],
         weaknesses: ['Can be overly idealistic', 'May be too selfless', 'Sometimes manipulative', 'Can be overprotective'],
-        careers: ['Teacher', 'Counselor', 'Politician', 'Coach', 'HR Manager', 'Public Relations'],
+        careers: ['Teacher', 'Learning Advisor', 'Politician', 'Coach', 'HR Manager', 'Public Relations'],
         relationships: 'ENFJs are devoted partners who invest deeply in relationships and personal growth.',
         growth: 'Work on self-care and boundaries. Practice accepting that you can\'t help everyone.'
     },

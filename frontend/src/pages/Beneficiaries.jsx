@@ -4,7 +4,7 @@ const groups = [
     points: [
       'AI-personalized learning path',
       'Career guidance aligned to cognitive type',
-      'Mental health crisis prevention and early intervention',
+      'Cognitive harmony support and early intervention',
       'Clear understanding of strengths, challenges, and learning style',
     ],
   },

@@ -59,7 +59,7 @@ const PERSONALITY_DATA = {
     overview: 'ENTPs are the ultimate devil\'s advocates, thriving on the process of shredding arguments and beliefs and letting the ribbons drift in the wind.',
     strengths: ['Knowledgeable', 'Quick thinkers', 'Original', 'Excellent brainstormers', 'Charismatic'],
     weaknesses: ['Argumentative', 'Insensitive', 'Intolerant', 'Can find it difficult to focus'],
-    careers: ['Entrepreneur', 'Lawyer', 'Psychologist', 'Inventor', 'Marketing Strategist'],
+    careers: ['Entrepreneur', 'Lawyer', 'Personality Specialist', 'Inventor', 'Marketing Strategist'],
     relationships: 'ENTPs enjoy the mental exercise of debating and discussing ideas with partners...',
     growthTips: 'Develop follow-through and sensitivity to others\' feelings...',
     famousPeople: ['Thomas Edison', 'Leonardo da Vinci', 'Mark Twain', 'Socrates']
@@ -74,7 +74,7 @@ const PERSONALITY_DATA = {
     overview: 'INFJs are the rarest personality type. They have a deep sense of idealism and integrity, but they aren\'t idle dreamers – they take concrete steps to realize their goals.',
     strengths: ['Creative', 'Insightful', 'Principled', 'Passionate', 'Altruistic'],
     weaknesses: ['Sensitive', 'Extremely private', 'Perfectionist', 'Reluctant to open up'],
-    careers: ['Counselor', 'Writer', 'Psychologist', 'Human Resources', 'Teacher'],
+    careers: ['Personality Advisor', 'Writer', 'Personality Specialist', 'Human Resources', 'Teacher'],
     relationships: 'INFJs seek depth and authenticity in their relationships...',
     growthTips: 'Balance idealism with practical action and learn to accept imperfection...',
     famousPeople: ['Martin Luther King Jr.', 'Nelson Mandela', 'Mother Teresa', 'Plato']
@@ -89,7 +89,7 @@ const PERSONALITY_DATA = {
     overview: 'INFPs are guided by their principles rather than by logic, excitement, or practicality. When deciding how to move forward, they will look to honor and beauty.',
     strengths: ['Idealistic', 'Seek and value harmony', 'Open-minded', 'Flexible', 'Creative'],
     weaknesses: ['Too idealistic', 'Too altruistic', 'Impractical', 'Dislikes dealing with data'],
-    careers: ['Writer', 'Artist', 'Counselor', 'Graphic Designer', 'Social Worker'],
+    careers: ['Writer', 'Artist', 'Personality Advisor', 'Graphic Designer', 'Social Worker'],
     relationships: 'INFPs are dreamers and idealists, seeking harmony and deep connections...',
     growthTips: 'Ground ideals in practical reality and develop assertiveness...',
     famousPeople: ['William Shakespeare', 'J.R.R. Tolkien', 'Vincent van Gogh', 'Princess Diana']
@@ -104,7 +104,7 @@ const PERSONALITY_DATA = {
     overview: 'ENFJs are natural-born leaders, full of passion and charisma. They reach out and inspire others to achieve and to do good in the world.',
     strengths: ['Tolerant', 'Reliable', 'Charismatic', 'Altruistic', 'Natural leaders'],
     weaknesses: ['Overly idealistic', 'Too selfless', 'Too sensitive', 'Fluctuating self-esteem'],
-    careers: ['Teacher', 'Counselor', 'Sales Manager', 'HR Director', 'Event Coordinator'],
+    careers: ['Teacher', 'Learning Advisor', 'Sales Manager', 'HR Director', 'Event Coordinator'],
     relationships: 'ENFJs are warm, affectionate partners who invest deeply in relationships...',
     growthTips: 'Learn to set boundaries and prioritize self-care...',
     famousPeople: ['Barack Obama', 'Oprah Winfrey', 'Maya Angelou', 'Martin Luther King Jr.']

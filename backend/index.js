@@ -569,7 +569,7 @@ const mbtiTypes = {
         growth_areas: ['Setting boundaries', 'Handling criticism', 'Expressing needs']
     },
     'INFJ': {
-        name: 'The Counselor',
+        name: 'The Advisor',
         description: 'Insightful, creative, and principled. You have a deep understanding of human nature and work towards making positive changes in the world.',
         strengths: ['Insightful', 'Creative', 'Dedicated', 'Compassionate'],
         growth_areas: ['Being more assertive', 'Sharing feelings', 'Accepting imperfection']
@@ -656,8 +656,8 @@ const mbtiTypes = {
 
 
 
-// Add SNTI TEST psychology chat endpoint with session management
-app.post('/api/psychology-chat', async (req, res) => {
+// Add SNTI TEST personality chat endpoint with session management
+app.post('/api/personality-chat', async (req, res) => {
     try {
         const { message, conversationHistory = [], userInfo, mode, mbtiType, riskTier } = req.body;
         
@@ -830,7 +830,7 @@ app.post('/api/psychology-chat', async (req, res) => {
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        console.error('Error in psychology chat:', error);
+        console.error('Error in personality chat:', error);
         res.status(500).json({ 
             error: 'Failed to get response',
             message: error.message 

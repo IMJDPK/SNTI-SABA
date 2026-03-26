@@ -18,7 +18,7 @@ const roleRows = [
 
 const requirements = [
   'Pakistani national',
-  'Minimum bachelor degree (psychology, education, or social sciences preferred)',
+  'Minimum bachelor degree (personality type science, education, or social sciences preferred)',
   'PECTAA training provided upon hiring',
   'Proficiency in the local language of assigned tehsil',
 ];

@@ -47,15 +47,15 @@ const PaymentModal = ({
       ]
     },
     'ai-session': {
-      title: 'Consult AI Psychologist',
+      title: 'Consult AI Personality Guide',
       icon: '🤖',
-      description: 'Ask 4 questions to our AI psychologist',
+      description: 'Ask 4 questions to our AI personality guide',
       features: [
         'Personalized guidance',
         'Based on your personality type',
         '4 questions per session',
         'Instant AI responses',
-        'Professional psychological insights'
+        'Professional personality type insights'
       ]
     }
   };

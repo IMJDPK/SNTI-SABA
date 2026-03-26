@@ -80,7 +80,7 @@ function About() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">UN SDG 4 Alignment</p>
           <h2 className="mt-2 text-3xl font-bold text-slate-900">Quality Education With Measurable Support</h2>
           <p className="mt-4 max-w-4xl text-slate-700 leading-8">
-            PAITECH supports SDG 4 by improving learning equity, early psychological support, and teacher enablement through data-guided interventions across districts and tehsils.
+            PAITECH supports SDG 4 by improving learning equity, early cognitive harmony support, and teacher enablement through data-guided interventions across districts and tehsils.
           </p>
           <Link to="/app" className="mt-6 inline-block rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
             Start SNTI Assessment

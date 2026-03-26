@@ -5,7 +5,7 @@ import { isPreviewAuthEnabled } from '../utils/previewAuth.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-function PsychologyChat() {
+function PersonalityChat() {
   const navigate = useNavigate();
   const previewAuthEnabled = isPreviewAuthEnabled();
   const [theme, setTheme] = useState(() => localStorage.getItem('snti_chat_theme') || 'dark');
@@ -67,7 +67,7 @@ function PsychologyChat() {
       try {
         setIsTyping(true);
         const token = localStorage.getItem('userToken');
-        const response = await fetch(`${API_URL}/api/psychology-chat`, {
+        const response = await fetch(`${API_URL}/api/personality-chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ function PsychologyChat() {
     try {
       const token = localStorage.getItem('userToken');
       // Send message to SNTI backend
-      const response = await fetch(`${API_URL}/api/psychology-chat`, {
+      const response = await fetch(`${API_URL}/api/personality-chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ function PsychologyChat() {
           + New chat
         </button>
         <div className={`space-y-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-          <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/70' : 'bg-slate-100'}`}>Psychology support</div>
+          <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/70' : 'bg-slate-100'}`}>Personality type support</div>
           <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/40' : 'bg-slate-100'}`}>Study routines</div>
           <div className={`rounded-xl px-3 py-2 ${isDark ? 'bg-slate-900/40' : 'bg-slate-100'}`}>Wellbeing check-ins</div>
         </div>
@@ -420,4 +420,4 @@ function PsychologyChat() {
   );
 }
 
-export default PsychologyChat;
+export default PersonalityChat;

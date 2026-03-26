@@ -404,9 +404,9 @@ const advancedQuestions = [
   ]),
 ];
 
-export const MENTAL_HEALTH_INTRO = 'The next few questions are about how you have been feeling recently. There are no right or wrong answers. You will not get in trouble for your answers. We ask because we care.';
+export const COGNITIVE_HARMONY_INTRO = 'The next few questions are about how you have been feeling recently. There are no right or wrong answers. You will not get in trouble for your answers. We ask because we care.';
 
-export const MENTAL_HEALTH_QUESTIONS = [
+export const COGNITIVE_HARMONY_QUESTIONS = [
   ...withDomain('depression', [
     { id: 'MH01', source: 'PHQ-A adapted', question: 'Over the past 2 weeks, how often have you felt little interest or pleasure in things you usually enjoy?', risk_weight: 1, amber_threshold: 3, red_threshold: 5 },
     { id: 'MH02', source: 'PHQ-A adapted', question: 'How often have you felt sad, empty, or hopeless?', risk_weight: 1, amber_threshold: 3, red_threshold: 5 },
@@ -487,8 +487,8 @@ export function getQuestionSet(track) {
   const personalityQuestions = QUESTION_BANKS[track] || [];
   return {
     personalityQuestions,
-    mentalHealthQuestions: MENTAL_HEALTH_QUESTIONS,
-    allQuestions: [...personalityQuestions, ...MENTAL_HEALTH_QUESTIONS],
+    harmonyScreeningQuestions: COGNITIVE_HARMONY_QUESTIONS,
+    allQuestions: [...personalityQuestions, ...COGNITIVE_HARMONY_QUESTIONS],
   };
 }
 
@@ -546,7 +546,7 @@ export function calculateRiskTier(answers) {
   let immediateRed = false;
   let totalWeightedScore = 0;
 
-  MENTAL_HEALTH_QUESTIONS.forEach((question) => {
+  COGNITIVE_HARMONY_QUESTIONS.forEach((question) => {
     const response = answers[question.id];
     if (!response) {
       return;

@@ -20,7 +20,7 @@ function SNTICareer() {
     {
       type: 'ENFJ',
       title: 'The Protagonist',
-      careers: ['HR Manager', 'Counselor', 'Teacher', 'Public Relations Director'],
+      careers: ['HR Manager', 'Learning Advisor', 'Teacher', 'Public Relations Director'],
       industry: 'Education & Social Services',
       color: 'bg-green-100 text-green-800'
     },
@@ -85,7 +85,7 @@ function SNTICareer() {
     },
     {
       name: 'Priya Sharma',
-      role: 'Career Counselor',
+      role: 'Career Advisor',
       quote: 'I recommend SNTI Career to all my clients. It provides insights that traditional career tests miss completely.',
       image: '👩‍🏫'
     }

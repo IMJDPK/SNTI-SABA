@@ -13,7 +13,7 @@ function NotFound() {
     { name: 'Dashboard', path: '/dashboard' },
     { name: 'All Tests', path: '/all-tests' },
     { name: 'Blog', path: '/blog' },
-    { name: 'AI Counselor', path: '/psychology-chat' },
+    { name: 'AI Personality Guide', path: '/personality-chat' },
   ];
 
   return (
@@ -92,8 +92,8 @@ function NotFound() {
         {/* Help Text */}
         <p className="text-gray-500 mt-8 text-sm">
           Still can't find what you're looking for? Try searching or{' '}
-          <Link to="/psychology-chat" className="text-blue-600 hover:underline font-medium">
-            chat with our AI counselor
+          <Link to="/personality-chat" className="text-blue-600 hover:underline font-medium">
+            chat with our AI personality guide
           </Link>
         </p>
       </div>

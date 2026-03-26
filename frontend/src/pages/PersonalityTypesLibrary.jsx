@@ -60,12 +60,12 @@ function PersonalityTypesLibrary() {
     {
       type: 'INFJ',
       title: 'The Advocate',
-      nickname: 'The Counselor',
+      nickname: 'The Advisor',
       group: 'diplomats',
       description: 'Quiet and mystical, yet inspiring and idealistic advocates who strive to make the world a better place.',
       strengths: ['Creative', 'Insightful', 'Principled', 'Passionate', 'Altruistic'],
       weaknesses: ['Sensitive', 'Perfectionist', 'Private', 'Burnout-prone'],
-      careers: ['Counselor', 'Psychologist', 'Writer', 'Social Worker', 'Human Rights Advocate'],
+      careers: ['Personality Advisor', 'Personality Specialist', 'Writer', 'Social Worker', 'Human Rights Advocate'],
       famous: ['Nelson Mandela', 'Mother Teresa', 'Martin Luther King Jr.'],
       percentage: '1.5%',
       color: 'bg-green-100 text-green-800'
@@ -78,7 +78,7 @@ function PersonalityTypesLibrary() {
       description: 'Poetic, kind, and altruistic people always eager to help and find harmony in relationships.',
       strengths: ['Idealistic', 'Open-minded', 'Flexible', 'Creative', 'Passionate'],
       weaknesses: ['Impractical', 'Self-critical', 'Emotionally vulnerable', 'Difficult to know'],
-      careers: ['Writer', 'Graphic Designer', 'Therapist', 'Teacher', 'Artist'],
+      careers: ['Writer', 'Graphic Designer', 'Learning Advisor', 'Teacher', 'Artist'],
       famous: ['William Shakespeare', 'J.R.R. Tolkien', 'Princess Diana'],
       percentage: '4.4%',
       color: 'bg-green-100 text-green-800'
@@ -91,7 +91,7 @@ function PersonalityTypesLibrary() {
       description: 'Charismatic and inspiring leaders who captivate and motivate others with their vision.',
       strengths: ['Tolerant', 'Reliable', 'Charismatic', 'Altruistic', 'Natural leaders'],
       weaknesses: ['Overly idealistic', 'Too selfless', 'Sensitive', 'Fluctuating self-esteem'],
-      careers: ['HR Manager', 'Teacher', 'Counselor', 'Public Relations Director', 'Politician'],
+      careers: ['HR Manager', 'Teacher', 'Learning Advisor', 'Public Relations Director', 'Politician'],
       famous: ['Oprah Winfrey', 'Barack Obama', 'Maya Angelou'],
       percentage: '2.5%',
       color: 'bg-teal-100 text-teal-800'

@@ -20,7 +20,7 @@ function Blog() {
     excerpt: 'Dive deep into the cognitive functions that shape your personality and learn how to leverage your natural strengths for personal and professional growth.',
     category: 'personality-types',
     author: 'Dr. Sarah Mitchell',
-    authorRole: 'Lead Psychologist',
+    authorRole: 'Lead Personality Type Specialist',
     date: 'November 8, 2025',
     readTime: '12 min read',
     image: '📚',
@@ -51,7 +51,7 @@ function Blog() {
     {
       id: 4,
       title: 'The Science Behind MBTI: What Research Says',
-      excerpt: 'Exploring the psychological research, validity studies, and neuroscience behind personality typing systems.',
+      excerpt: 'Exploring the research, validity studies, and neuroscience behind personality typing systems.',
       category: 'research',
       author: 'Dr. Sarah Mitchell',
       date: 'October 28, 2025',
@@ -81,7 +81,7 @@ function Blog() {
     {
       id: 7,
       title: 'How Each Personality Type Handles Stress',
-      excerpt: 'Understand your stress triggers and learn coping mechanisms tailored to your personality type for better mental health.',
+      excerpt: 'Understand your stress triggers and learn coping mechanisms tailored to your personality type for better cognitive harmony.',
       category: 'self-improvement',
       author: 'Dr. James Lee',
       date: 'October 15, 2025',
@@ -150,7 +150,7 @@ function Blog() {
             </h1>
             <p className="text-xl mb-8 opacity-90">
               Expert articles on personality types, career development, relationships, and personal growth. 
-              Learn from psychologists and personality experts.
+              Learn from personality type experts and researchers.
             </p>
             
             {/* Search Bar */}

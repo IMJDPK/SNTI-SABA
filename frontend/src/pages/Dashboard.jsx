@@ -410,11 +410,11 @@ const Dashboard = () => {
               <p className="text-sm text-gray-600">Learn about types</p>
             </Link>
 
-            <Link to="/psychology-chat" className="card group cursor-pointer text-center hover:scale-105">
+            <Link to="/personality-chat" className="card group cursor-pointer text-center hover:scale-105">
               <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center text-3xl mb-3 mx-auto">
                 🤖
               </div>
-              <h3 className="font-semibold text-primary-dark mb-1">AI Counselor</h3>
+              <h3 className="font-semibold text-primary-dark mb-1">AI Personality Guide</h3>
               <p className="text-sm text-gray-600">Get guidance</p>
             </Link>
           </div>

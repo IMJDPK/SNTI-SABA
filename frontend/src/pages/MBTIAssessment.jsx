@@ -4,7 +4,7 @@ import {
   AGE_GROUPS,
   DEFAULT_FREQUENCY_SCALE,
   JUNIOR_SCALE,
-  MENTAL_HEALTH_INTRO,
+  COGNITIVE_HARMONY_INTRO,
   PERSONALITY_SCALE,
   calculateRiskTier,
   calculateSNTIType,
@@ -111,13 +111,13 @@ function MBTIAssessment() {
     }
   }, []);
 
-  const { personalityQuestions, mentalHealthQuestions, allQuestions } = useMemo(
-    () => (track ? getQuestionSet(track) : { personalityQuestions: [], mentalHealthQuestions: [], allQuestions: [] }),
+  const { personalityQuestions, harmonyScreeningQuestions, allQuestions } = useMemo(
+    () => (track ? getQuestionSet(track) : { personalityQuestions: [], harmonyScreeningQuestions: [], allQuestions: [] }),
     [track]
   );
 
   const currentQuestion = allQuestions[currentQuestionIndex];
-  const isMentalHealthSection = currentQuestionIndex >= personalityQuestions.length;
+  const isHarmonySection = currentQuestionIndex >= personalityQuestions.length;
   const progressPercentage = allQuestions.length
     ? Math.round(((currentQuestionIndex + 1) / allQuestions.length) * 100)
     : 0;
@@ -257,7 +257,7 @@ function MBTIAssessment() {
 
   const handleContinueToGuidanceChat = async () => {
     if (previewAuthEnabled) {
-      navigate('/psychology-chat');
+      navigate('/personality-chat');
       return;
     }
 
@@ -265,7 +265,7 @@ function MBTIAssessment() {
       setGoogleError('');
       setIsSavingResult(true);
       await persistAssessmentToBackend(results);
-      navigate('/psychology-chat');
+      navigate('/personality-chat');
     } catch (err) {
       setGoogleError(err.message || 'Unable to continue. Please try again.');
     } finally {
@@ -279,7 +279,7 @@ function MBTIAssessment() {
       setIsGoogleLinked(true);
       setIsSavingResult(true);
       await persistAssessmentToBackend(results);
-      navigate('/psychology-chat');
+      navigate('/personality-chat');
     } catch (err) {
       setGoogleError(err.message || 'Google sign-in succeeded but saving failed. Please retry.');
     } finally {
@@ -302,7 +302,7 @@ function MBTIAssessment() {
             <div className="mt-6 flex flex-wrap gap-3">
               <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-sky-100">Age {results.age}</span>
               <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-sky-100">{personalityQuestions.length} personality items</span>
-              <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-sky-100">{mentalHealthQuestions.length} wellbeing items</span>
+              <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-sky-100">{harmonyScreeningQuestions.length} wellbeing items</span>
             </div>
           </div>
 
@@ -510,11 +510,11 @@ function MBTIAssessment() {
                 {activeAgeGroup?.label} · Question {currentQuestionIndex + 1} of {allQuestions.length}
               </p>
               <h1 className="mb-3 text-3xl font-bold text-white md:text-4xl">
-                {isMentalHealthSection ? 'Wellbeing screening' : 'SNTI personality assessment'}
+                {isHarmonySection ? 'Wellbeing screening' : 'SNTI personality assessment'}
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-slate-200">
-                {isMentalHealthSection
-                  ? MENTAL_HEALTH_INTRO
+                {isHarmonySection
+                  ? COGNITIVE_HARMONY_INTRO
                   : 'Choose the point on the scale that best reflects which side fits you more strongly.'}
               </p>
             </div>
@@ -533,7 +533,7 @@ function MBTIAssessment() {
                 </div>
                 <div className="rounded-2xl bg-white/5 px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Section</p>
-                  <p className="mt-1 font-semibold text-white">{isMentalHealthSection ? 'Wellbeing' : 'Personality'}</p>
+                  <p className="mt-1 font-semibold text-white">{isHarmonySection ? 'Wellbeing' : 'Personality'}</p>
                 </div>
               </div>
             </div>
@@ -546,7 +546,7 @@ function MBTIAssessment() {
               <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">{currentQuestion.id}</p>
               <h2 className="mb-0 max-w-3xl text-2xl font-semibold text-slate-900 md:text-3xl">{currentQuestion.question}</h2>
             </div>
-            {track === 'junior' && !isMentalHealthSection && (
+            {track === 'junior' && !isHarmonySection && (
               <button
                 onClick={readQuestionAloud}
                 className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
@@ -556,7 +556,7 @@ function MBTIAssessment() {
             )}
           </div>
 
-          {!isMentalHealthSection && (
+          {!isHarmonySection && (
             <div className="mb-8 grid gap-4 rounded-[1.5rem] bg-slate-50 p-5 md:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Left option</p>
@@ -593,7 +593,7 @@ function MBTIAssessment() {
             })}
           </div>
 
-          {isMentalHealthSection && (
+          {isHarmonySection && (
             <p className="mt-5 text-sm leading-6 text-slate-600">
               Answer based on how you have been feeling recently. Your responses are stored with the assessment session.
             </p>

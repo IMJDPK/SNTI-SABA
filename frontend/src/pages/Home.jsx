@@ -8,8 +8,8 @@ const featureCards = [
     lottie: 'https://assets1.lottiefiles.com/packages/lf20_jcikwtux.json',
   },
   {
-    title: 'AI Psychologist',
-    copy: 'Chat with SABA for guided support, reflection, and study-focused mental wellbeing.',
+    title: 'AI Personality Guide',
+    copy: 'Chat with SABA for guided support, reflection, and study-focused cognitive harmony.',
     lottie: 'https://assets9.lottiefiles.com/packages/lf20_ydo1amjm.json',
   },
   {
@@ -44,7 +44,7 @@ const statCards = [
   {
     value: '24/7',
     label: 'AI Support',
-    description: 'Always-on psychology and learning guidance.',
+    description: 'Always-on personality type and learning guidance.',
     lottie: 'https://assets7.lottiefiles.com/packages/lf20_w51pcehl.json',
   },
   {
@@ -107,7 +107,7 @@ export default function Home() {
         <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16 lg:px-8 lg:py-20">
           <div className="text-center">
             <div className="mb-6 inline-flex items-center rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-sm font-medium text-sky-100 backdrop-blur">
-              PAITECH AI-Powered Psychology Platform
+              PAITECH AI-Powered Personality Platform
             </div>
             <h1 className="mx-auto mb-6 max-w-5xl text-4xl font-bold text-white md:text-6xl lg:text-7xl">
               Meet <span className="text-cyan-300">SABA</span>
@@ -126,7 +126,7 @@ export default function Home() {
                 Start Free Assessment
               </button>
               <button
-                onClick={() => navigate('/psychology-chat')}
+                onClick={() => navigate('/personality-chat')}
                 className="rounded-2xl border border-white/40 bg-white/10 px-8 py-3 text-lg font-semibold text-white transition hover:bg-white/20"
               >
                 Chat with AI

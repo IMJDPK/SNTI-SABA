@@ -56,8 +56,8 @@ function AboutMBTI() {
   const mbtiHistory = [
     {
       year: '1920s',
-      event: 'Carl Jung\'s Psychological Types',
-      description: 'Swiss psychiatrist Carl Jung published his theory of psychological types, introducing the concepts of introversion/extraversion and cognitive functions.'
+      event: 'Carl Jung\'s Personality Type Theory',
+      description: 'Swiss researcher Carl Jung published his theory of personality types, introducing the concepts of introversion/extraversion and cognitive functions.'
     },
     {
       year: '1940s',
@@ -67,7 +67,7 @@ function AboutMBTI() {
     {
       year: '1962',
       event: 'Official Publication',
-      description: 'The Myers-Briggs Type Indicator was officially published and began gaining recognition in psychology and career counseling.'
+      description: 'The Myers-Briggs Type Indicator was officially published and began gaining recognition in personality type research and career guidance.'
     },
     {
       year: '1970s-Present',
@@ -145,13 +145,13 @@ function AboutMBTI() {
             </h2>
             <div className="card bg-white">
               <p className="text-gray-700 text-lg leading-relaxed mb-4">
-                The <strong>Myers-Briggs Type Indicator (MBTI)</strong> is a psychological assessment tool 
+                The <strong>Myers-Briggs Type Indicator (MBTI)</strong> is a personality type assessment 
                 that categorizes individuals into 16 distinct personality types based on their preferences 
                 across four dimensions of human behavior.
               </p>
               <p className="text-gray-700 text-lg leading-relaxed mb-4">
                 Developed by Katharine Cook Briggs and her daughter Isabel Briggs Myers, the MBTI is based 
-                on Carl Jung's theory of psychological types. It helps people understand their own preferences, 
+                on Carl Jung's theory of personality types. It helps people understand their own preferences, 
                 communication styles, decision-making processes, and how they interact with the world.
               </p>
               <p className="text-gray-700 text-lg leading-relaxed">

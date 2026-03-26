@@ -80,7 +80,7 @@ function SNTIStudents() {
     {
       category: 'Diplomats (NF)',
       types: 'INFJ, INFP, ENFJ, ENFP',
-      subjects: ['Psychology', 'Literature', 'Creative Writing', 'Social Work', 'Languages', 'Arts'],
+      subjects: ['Personality Science', 'Literature', 'Creative Writing', 'Social Work', 'Languages', 'Arts'],
       icon: '🎨'
     },
     {

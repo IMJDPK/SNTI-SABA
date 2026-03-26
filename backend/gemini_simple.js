@@ -42,7 +42,7 @@ async function generateAIText(prompt) {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${OPENROUTER_API_KEY}`,
                 'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
-                'X-Title': 'SNTI-SABA Psychology Chat'
+                'X-Title': 'SNTI-SABA Personality Chat'
             },
             body: JSON.stringify({
                 model: OPENROUTER_MODEL_NAME,
@@ -107,7 +107,7 @@ export async function generateTypeAwareGuidanceResponse(userMessage, profile, co
         return `${role}: ${m.text}`;
     }).join('\n');
 
-    const prompt = `You are SABA, a child-safe psychology and learning support assistant.
+    const prompt = `You are SABA, a child-safe personality type and learning support assistant.
 
 Safety requirements:
 - Keep language age-appropriate and compassionate.
@@ -310,7 +310,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                           `Ready to begin, ${session.name}? Reply with \"START\" to begin your journey! 🚀`;
             } else {
                 response = `Hello! 👋 Welcome to the **SNTI TEST BY SULNAQ x IMJD**!\n\n` +
-                          `I'm your friendly psychology assistant, and I'll be guiding you through a personalized personality assessment.\n\n` +
+                          `I'm your friendly personality type guide, and I'll be guiding you through a personalized personality assessment.\n\n` +
                           `Before we begin, I'd love to know your name! What should I call you? 😊`;
             }
         }
@@ -440,7 +440,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                                   `**ذاتی ترقی کا مشورہ:**\n${typeInfo.growth}\n\n` +
                                   `---\n\n` +
                                   `آپ کے نتائج آئی ڈی کے ساتھ محفوظ کر دیے گئے ہیں: **${session.id}**\n\n` +
-                                  `${session.name}، بلا جھجھک مجھ سے اپنی شخصیت کی قسم کے بارے میں کچھ بھی پوچھیں، یا ہم نفسیات، ذاتی ترقی، یا کسی بھی چیلنج کے بارے میں بات چیت جاری رکھ سکتے ہیں! 😊`;
+                                  `${session.name}، بلا جھجھک مجھ سے اپنی شخصیت کی قسم کے بارے میں کچھ بھی پوچھیں، یا ہم شخصیتی ترقی، علمی ہم آہنگی، یا کسی بھی چیلنج کے بارے میں بات چیت جاری رکھ سکتے ہیں! 😊`;
                     } else {
                         response = `🎉 **Congratulations, ${session.name}!** You've completed the SNTI TEST! 🎉\n\n` +
                                   `**Your Personality Type: ${mbtiType}**\n` +
@@ -453,7 +453,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
                                   `**Personal Growth Advice:**\n${typeInfo.growth}\n\n` +
                                   `---\n\n` +
                                   `Your results have been saved with ID: **${session.id}**\n\n` +
-                                  `${session.name}, feel free to ask me anything about your personality type, or we can continue our conversation about psychology, personal growth, or any challenges you're facing! 😊`;
+                                  `${session.name}, feel free to ask me anything about your personality type, or we can continue our conversation about personality growth, cognitive harmony, or any challenges you're facing! 😊`;
                     }
                 } else {
                     // Ask next question
@@ -533,7 +533,7 @@ export async function handleSNTITestConversation(userMessage, sessionIdentifier,
         else if (session.state === 'TEST_COMPLETE') {
             const typeInfo = MBTI_TYPES[session.mbtiType];
             
-            const systemPrompt = `You are an empathetic psychology assistant helping ${session.name} (MBTI Type: ${session.mbtiType} - ${typeInfo.name}).
+            const systemPrompt = `You are an empathetic cognitive harmony guide helping ${session.name} (MBTI Type: ${session.mbtiType} - ${typeInfo.name}).
 
 Key information about ${session.name}:
 - Personality Type: ${session.mbtiType}
@@ -603,21 +603,21 @@ Respond to their message with empathy and personalized guidance:`;
 }
 
 /**
- * Generate empathetic psychology response using configured AI provider
+ * Generate empathetic cognitive insight response using configured AI provider
  * @param {string} userMessage - The user's message
  * @param {string} context - Additional context or system prompt
  * @returns {Promise<string>} - AI generated response
  */
-export async function generatePsychologyResponse(userMessage, context = '') {
+export async function generateCognitiveInsightResponse(userMessage, context = '') {
     try {
-        const systemPrompt = `You are an empathetic, professional psychology assistant. 
+        const systemPrompt = `You are an empathetic, professional cognitive harmony guide. 
 Your role is to:
 - Provide supportive, understanding responses
 - Acknowledge the user's feelings and validate their experiences
 - Offer helpful guidance and coping strategies
 - Maintain professional boundaries while being warm and caring
 - Ask thoughtful follow-up questions to understand deeper
-- Suggest evidence-based psychological techniques when appropriate
+- Suggest evidence-based personality type techniques when appropriate
 
 ${context}
 
@@ -629,7 +629,7 @@ Respond naturally and conversationally. Be compassionate, non-judgmental, and he
 
         return text;
     } catch (error) {
-        console.error('Error generating psychology response:', error);
+        console.error('Error generating cognitive insight response:', error);
         throw new Error('Failed to generate AI response: ' + error.message);
     }
 }
@@ -643,7 +643,7 @@ Respond naturally and conversationally. Be compassionate, non-judgmental, and he
 export async function generateConversationalResponse(userMessage, conversationHistory = []) {
     try {
         // Build conversation context
-        let contextPrompt = `You are an empathetic psychology assistant helping users with their mental health and emotional well-being. Provide supportive, understanding, and professional guidance.\n\n`;
+        let contextPrompt = `You are an empathetic cognitive harmony guide helping users with their personality type and emotional balance. Provide supportive, understanding, and professional guidance.\n\n`;
 
         if (conversationHistory.length > 0) {
             contextPrompt += "Previous conversation:\n";
@@ -667,7 +667,7 @@ export async function generateConversationalResponse(userMessage, conversationHi
 }
 
 export default {
-    generatePsychologyResponse,
+    generateCognitiveInsightResponse,
     generateConversationalResponse,
     generateTypeAwareGuidanceResponse,
     evaluateBehaviorRisk
